@@ -15,6 +15,7 @@ spec:
       containers:
       - name: backend2
         image: your-registry/backend2:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 8080
 ---
