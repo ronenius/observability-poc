@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>Microservices Chain Test</h2>
+    <button onclick="testChain()">Send Request</button>
+    <pre id="output"></pre>
+    <script>
+        async function testChain() {
+            const out = document.getElementById('output');
+            out.innerText = 'Loading...';
+            try {
+                const res = await fetch('/api/trigger');
+                const data = await res.json();
+                out.innerText = JSON.stringify(data, null, 2);
+            } catch (err) {
+                out.innerText = 'Request failed: ' + err;
+            }
+        }
+    </script>
+</body>
+</html>
