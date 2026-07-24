@@ -1,4 +1,5 @@
 import logging
+import random
 
 import requests
 from flask import Flask, jsonify
@@ -12,9 +13,16 @@ logger = logging.getLogger("backend1")
 
 app = Flask(__name__)
 
-@app.route('/api/process') # Adjust if your frontend calls a different route
+@app.route('/api/process')
 def trigger_backend2():
-    logger.info("Backend 1 (Python) received request from Frontend. Forwarding to Backend 2...")
+    logger.info("Backend 1 (Python) received request from Frontend.")
+    
+    # 10% chance to drop the request and return an error
+    if random.random() < 0.10:
+        logger.error("Simulated failure: Randomly dropping request (10% chance).")
+        return jsonify({"error": "Simulated failure in Backend 1"}), 500
+
+    logger.info("Forwarding to Backend 2...")
     
     try:
         # The OTel agent automatically injects trace headers into this outbound request
