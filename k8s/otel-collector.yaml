@@ -1,0 +1,49 @@
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: local-edge-collector
+  namespace: observability-poc
+spec:
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+    exporters:
+      debug:
+        verbosity: detailed
+      
+      # Add the Prometheus Remote Write exporter
+      prometheusremotewrite:
+        # REPLACE THIS with your actual Prometheus service DNS
+        endpoint: "http://prometheus-stack-kube-prom-prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+        tls:
+          insecure: true
+      
+      otlphttp/loki:
+        # Point to the native OTLP ingestion route on the Loki Gateway
+        endpoint: "http://loki.monitoring.svc.cluster.local:3100/otlp"
+        tls:
+          insecure: true
+
+      otlp/tempo:
+        endpoint: "tempo.monitoring.svc.cluster.local:4317"
+        tls:
+          insecure: true
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          exporters: [debug, otlp/tempo]
+        metrics:
+          receivers: [otlp]
+          # Inject the new exporter into the metrics pipeline
+          exporters: [debug, prometheusremotewrite]
+        logs:
+          receivers: [otlp]
+          exporters: [debug, otlphttp/loki]
