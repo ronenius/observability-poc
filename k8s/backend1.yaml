@@ -11,8 +11,8 @@ spec:
     metadata:
       labels:
         app: backend1
-      annotations:
-        instrumentation.opentelemetry.io/inject-nodejs: "true"
+      #annotations:
+      #  instrumentation.opentelemetry.io/inject-nodejs: "true"
     spec:
       containers:
       - name: backend1
