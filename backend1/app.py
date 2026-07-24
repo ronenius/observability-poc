@@ -12,7 +12,7 @@ logger = logging.getLogger("backend1")
 
 app = Flask(__name__)
 
-@app.route('/api/trigger') # Adjust if your frontend calls a different route
+@app.route('/api/process') # Adjust if your frontend calls a different route
 def trigger_backend2():
     logger.info("Backend 1 (Python) received request from Frontend. Forwarding to Backend 2...")
     
