@@ -8,10 +8,42 @@ spec:
     endpoint: "http://local-edge-collector-collector.observability-poc.svc.cluster.local:4317"
   env:
     - name: OTEL_EXPORTER_OTLP_PROTOCOL
-      value: grpc
+      value: "grpc"
     - name: OTEL_TRACES_EXPORTER
-      value: otlp
+      value: "otlp"
     - name: OTEL_METRICS_EXPORTER
-      value: otlp
+      value: "otlp"
     - name: OTEL_LOGS_EXPORTER
-      value: otlp
+      value: "otlp"
+      
+    # --- Trace Propagation ---
+    # Ensures Node.js, Java, and Python all use the W3C standard to pass trace context
+    - name: OTEL_PROPAGATORS
+      value: "tracecontext,baggage"
+      
+    # --- Metrics & Exemplars ---
+    # Attaches trace IDs to metric data points to link dashboard spikes to specific requests
+    - name: OTEL_METRICS_EXEMPLAR_FILTER
+      value: "trace_based"
+      
+    # --- Python Log Correlation ---
+    # Tells the Python auto-instrumentation to monkey-patch the logging library
+    - name: OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED
+      value: "true"
+    # Extracts the active trace context and injects it into Python log records
+    - name: OTEL_PYTHON_LOG_CORRELATION
+      value: "true"
+
+    # --- Global Resource Attributes ---
+    # (Optional but recommended) Tags all telemetry with your environment and cluster
+    - name: OTEL_RESOURCE_ATTRIBUTES
+      value: "deployment.environment=poc,k8s.cluster.name=local-dev"
+
+  # --- Python-Specific Overrides ---
+  # Bypasses the grpcio C-extension failure on python:slim images by forcing HTTP
+  python:
+    env:
+      - name: OTEL_EXPORTER_OTLP_PROTOCOL
+        value: "http/protobuf"
+      - name: OTEL_EXPORTER_OTLP_ENDPOINT
+        value: "http://local-edge-collector-collector.observability-poc.svc.cluster.local:4318"
