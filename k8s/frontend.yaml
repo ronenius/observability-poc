@@ -11,8 +11,8 @@ spec:
     metadata:
       labels:
         app: frontend
-      #annotations:
-      #  instrumentation.opentelemetry.io/inject-nodejs: "true"
+      annotations:
+        instrumentation.opentelemetry.io/inject-nodejs: "true"
     spec:
       containers:
       - name: frontend
