@@ -1,7 +1,6 @@
 const express = require('express');
 const axios = require('axios');
 const winston = require('winston');
-const { OpenTelemetryTransportV3 } = require('@opentelemetry/winston-transport');
 
 const app = express();
 const BACKEND2_URL = process.env.BACKEND2_URL || 'http://backend2:8080';
@@ -12,11 +11,7 @@ const logger = winston.createLogger({
         winston.format.timestamp(),
         winston.format.json()
     ),
-    transports: [
-        new winston.transports.Console(),
-        // Add the OTel transport here
-        new OpenTelemetryTransportV3() 
-    ]
+    transports: [new winston.transports.Console()]
 });
 
 app.get('/api/process', async (req, res) => {
