@@ -6,7 +6,7 @@ from flask import Flask, jsonify
 # Standard Python logging - OTel will dynamically inject the trace variables
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s] %(name)s - %(message)s'
+    format='%(asctime)s [%(levelname)s] %(name)s - %(message)s'
 )
 logger = logging.getLogger("backend1")
 
