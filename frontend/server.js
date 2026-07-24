@@ -3,6 +3,7 @@ const axios = require('axios');
 const path = require('path');
 const winston = require('winston');
 const { OpenTelemetryTransportV3 } = require('@opentelemetry/winston-transport');
+const promClient = require('prom-client');
 
 const app = express();
 const BACKEND1_URL = process.env.BACKEND1_URL || 'http://backend1:3001';
@@ -18,6 +19,30 @@ const logger = winston.createLogger({
         // Add the OTel transport here
         new OpenTelemetryTransportV3() 
     ]
+});
+
+// Prometheus Metric Definition
+const requestCounter = new promClient.Counter({
+    name: 'app_requests_total',
+    help: 'Total number of requests received'
+});
+
+// Express Middleware to increment counter for all requests except /metrics itself
+app.use((req, res, next) => {
+    if (req.path !== '/metrics') {
+        requestCounter.inc();
+    }
+    next();
+});
+
+// Exposes the Prometheus metrics endpoint
+app.get('/metrics', async (req, res) => {
+    try {
+        res.set('Content-Type', promClient.register.contentType);
+        res.end(await promClient.register.metrics());
+    } catch (ex) {
+        res.status(500).end(ex);
+    }
 });
 
 app.get('/', (req, res) => {

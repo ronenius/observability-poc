@@ -2,7 +2,8 @@ import logging
 import random
 
 import requests
-from flask import Flask, jsonify
+from flask import Flask, Response, jsonify
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, generate_latest
 
 # Standard Python logging - OTel will dynamically inject the trace variables
 logging.basicConfig(
@@ -13,8 +14,18 @@ logger = logging.getLogger("backend1")
 
 app = Flask(__name__)
 
+# Prometheus Metric Definition
+REQUEST_COUNTER = Counter('app_requests_total', 'Total number of requests received')
+
+@app.route('/metrics')
+def metrics():
+    """Exposes the Prometheus metrics endpoint"""
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
+
 @app.route('/api/process')
 def trigger_backend2():
+    # Increment the counter on request
+    REQUEST_COUNTER.inc()
     logger.info("Backend 1 (Python) received request from Frontend.")
     
     # 10% chance to drop the request and return an error
