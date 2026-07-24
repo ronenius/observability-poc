@@ -39,6 +39,15 @@ spec:
     - name: OTEL_RESOURCE_ATTRIBUTES
       value: "deployment.environment=poc,k8s.cluster.name=local-dev"
 
+    - name: OTEL_INSTRUMENTATION_PROMETHEUS_CLIENT_ENABLED
+      value: "true"
+
+    - name: OTEL_INSTRUMENTATION_PROMETHEUS_ENABLED
+      value: "true"
+
+    - name: OTEL_INSTRUMENTATION_RUNTIME_METRICS_ENABLED
+      value: "true"
+
   # --- Python-Specific Overrides ---
   # Bypasses the grpcio C-extension failure on python:slim images by forcing HTTP
   python:
