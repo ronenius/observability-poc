@@ -4,28 +4,41 @@ metadata:
   name: local-edge-collector
   namespace: observability-poc
 spec:
+  # --- ADD THIS LINE ---
+  # Forces the operator to use the contrib distribution instead of core.
+  # Note: It is best practice to replace 'latest' with a specific version tag 
+  # that matches your OpenTelemetry Operator version (e.g., 0.104.0)
+  image: "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:latest"
+  # ---------------------
+  
   config:
+    extensions:
+      headers_setter:
+        headers:
+          - action: insert
+            key: X-Scope-OrgID
+            from_context: app
+
     receivers:
       otlp:
         protocols:
           grpc:
+            include_metadata: true
             endpoint: 0.0.0.0:4317
           http:
+            include_metadata: true
             endpoint: 0.0.0.0:4318
 
     exporters:
       debug:
         verbosity: detailed
       
-      # Add the Prometheus Remote Write exporter
       prometheusremotewrite:
-        # REPLACE THIS with your actual Prometheus service DNS
         endpoint: "http://prometheus-stack-kube-prom-prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
         tls:
           insecure: true
       
       otlphttp/loki:
-        # Point to the native OTLP ingestion route on the Loki Gateway
         endpoint: "http://loki.monitoring.svc.cluster.local:3100/otlp"
         tls:
           insecure: true
@@ -34,15 +47,22 @@ spec:
         endpoint: "tempo.monitoring.svc.cluster.local:4317"
         tls:
           insecure: true
+        auth:
+          authenticator: headers_setter
+
+      otlphttp/test:
+        endpoint: "https://webhook.site/e6a4fea4-72fd-42a7-9914-853ad00d354f"
+        auth:
+          authenticator: headers_setter
 
     service:
+      extensions: [headers_setter]
       pipelines:
         traces:
           receivers: [otlp]
-          exporters: [debug, otlp/tempo]
+          exporters: [debug, otlp/tempo, otlphttp/test]
         metrics:
           receivers: [otlp]
-          # Inject the new exporter into the metrics pipeline
           exporters: [debug, prometheusremotewrite]
         logs:
           receivers: [otlp]

@@ -1,0 +1,29 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: tempo
+  # Deploy this in the same namespace as Prometheus or Tempo
+  namespace: monitoring 
+  labels:
+    # THE LABEL TRAP: 
+    # By default, Prometheus only discovers ServiceMonitors that have the 
+    # EXACT same release label as the prometheus-operator Helm release.
+    # If your helm release for the stack is "prometheus-stack", set this to "prometheus-stack".
+    release: prometheus-stack
+spec:
+  # This tells the ServiceMonitor which namespace to look for the Tempo Service in
+  namespaceSelector:
+    matchNames:
+      - monitoring
+  # This selector must exactly match the labels on your Tempo Kubernetes Service
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tempo
+      # app.kubernetes.io/instance: tempo # Uncomment if your service uses this
+  endpoints:
+    # The name of the port in your Tempo K8s Service that exposes the metrics.
+    # Check your Tempo service (`kubectl get svc -n monitoring`) to see if this is named 'http', 'http-metrics', or 'metrics'.
+    - port: tempo-prom-metrics
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s

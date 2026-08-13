@@ -1,21 +1,153 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Observability POC — Frontend</title>
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --muted:#94a3b8; --accent:#60a5fa; --glass:rgba(255,255,255,0.04);
+    }
+    html,body{height:100%;margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background: linear-gradient(180deg,#071021 0%, #071a2b 60%); color:#e6eef8}
+    .app{max-width:980px;margin:36px auto;padding:24px}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:20px}
+    .logo{width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#7dd3fc);display:flex;align-items:center;justify-content:center;font-weight:700;color:#04263b}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:4px 0 0;color:var(--muted)}
+
+    .grid{display:grid;grid-template-columns:1fr 320px;gap:20px}
+    .card{background:var(--card);border-radius:12px;padding:18px;box-shadow:0 4px 18px rgba(2,6,23,0.6);}
+    .controls{display:flex;gap:10px;align-items:center}
+    button.btn{background:linear-gradient(180deg,var(--accent),#3b82f6);border:0;color:#04263b;padding:10px 14px;border-radius:10px;font-weight:600;cursor:pointer}
+    button.ghost{background:transparent;border:1px solid var(--glass);color:var(--accent);padding:8px 10px;border-radius:8px}
+    .muted{color:var(--muted);font-size:13px}
+
+    #output{white-space:pre-wrap;overflow:auto;max-height:420px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+
+    .panel-right{display:flex;flex-direction:column;gap:12px}
+    .stat{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:8px;background:rgba(255,255,255,0.02)}
+
+    .spinner{width:18px;height:18px;border-radius:50%;border:3px solid rgba(255,255,255,0.12);border-top-color:var(--accent);animation:spin 1s linear infinite;display:inline-block}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    .toolbar{display:flex;gap:8px;margin-top:12px}
+    .small{font-size:13px;padding:6px 8px}
+
+    footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+
+    @media (max-width:880px){.grid{grid-template-columns:1fr;}.panel-right{order:2}}
+  </style>
+</head>
 <body>
-    <h2>Microservices Chain Test</h2>
-    <button onclick="testChain()">Send Request</button>
-    <pre id="output"></pre>
-    <script>
-        async function testChain() {
-            const out = document.getElementById('output');
-            out.innerText = 'Loading...';
-            try {
-                const res = await fetch('/api/trigger');
-                const data = await res.json();
-                out.innerText = JSON.stringify(data, null, 2);
-            } catch (err) {
-                out.innerText = 'Request failed: ' + err;
-            }
-        }
-    </script>
+  <div class="app">
+    <header>
+      <div class="logo">POC</div>
+      <div>
+        <h1>Observability POC — Frontend</h1>
+        <p class="lead">Trigger the microservice chain and inspect the result, with metrics and logs accessible separately.</p>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div>
+            <strong>Microservices Chain Test</strong>
+            <div class="muted">Run an end-to-end request through the backend chain</div>
+          </div>
+          <div class="controls">
+            <button id="runBtn" class="btn">Send Request</button>
+            <button id="clearBtn" class="ghost small">Clear</button>
+          </div>
+        </div>
+
+        <div id="status" class="muted">Ready</div>
+
+        <div style="margin-top:14px">
+          <div id="output">No output yet. Click "Send Request" to begin.</div>
+        </div>
+
+        <div class="toolbar">
+          <button id="copyBtn" class="ghost small">Copy JSON</button>
+          <button id="prettyBtn" class="ghost small">Toggle Pretty</button>
+        </div>
+
+      </section>
+
+      <aside class="panel-right">
+        <div class="card stat">
+          <div>
+            <div class="muted">Last run</div>
+            <div id="lastRun">—</div>
+          </div>
+          <div id="lastStatus" class="muted">—</div>
+        </div>
+
+        <div class="card">
+          <div class="muted">Quick Links</div>
+          <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
+            <a class="ghost" href="/metrics" style="text-decoration:none;padding:8px;border-radius:8px;background:transparent;color:var(--accent);display:inline-block">Prometheus Metrics</a>
+            <a class="ghost" href="#" onclick="openLogs(event)" style="text-decoration:none;padding:8px;border-radius:8px;background:transparent;color:var(--accent);display:inline-block">View Logs (console)</a>
+          </div>
+        </div>
+
+        <div class="card muted">
+          This is a demo GUI meant to improve developer ergonomics. For production use, wire authentication and richer telemetry UIs.
+        </div>
+      </aside>
+    </div>
+
+    <footer>Frontend service listening on port 3000 • Built for observability demo</footer>
+  </div>
+
+  <script>
+    let lastJson = null;
+    let pretty = true;
+
+    const runBtn = document.getElementById('runBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const prettyBtn = document.getElementById('prettyBtn');
+    const statusEl = document.getElementById('status');
+    const outputEl = document.getElementById('output');
+    const lastRunEl = document.getElementById('lastRun');
+    const lastStatusEl = document.getElementById('lastStatus');
+
+    runBtn.addEventListener('click', trigger);
+    clearBtn.addEventListener('click', () => { outputEl.textContent = 'No output yet. Click "Send Request" to begin.'; lastJson = null; lastRunEl.textContent = '—'; lastStatusEl.textContent = '—'; statusEl.textContent = 'Ready'; });
+    copyBtn.addEventListener('click', () => { if (!lastJson) return; navigator.clipboard.writeText(JSON.stringify(lastJson, null, 2)).then(()=>{statusEl.textContent='Copied to clipboard'; setTimeout(()=>statusEl.textContent='Ready',1200)}); });
+    prettyBtn.addEventListener('click', () => { pretty = !pretty; renderOutput(); prettyBtn.textContent = pretty ? 'Toggle Pretty' : 'Toggle Raw'; });
+
+    function openLogs(e){ e.preventDefault(); alert('Logs are written to the server console. Check the backend and frontend logs in your environment.'); }
+
+    async function trigger(){
+      statusEl.innerHTML = '<span class="spinner" aria-hidden="true"></span> Running...';
+      runBtn.disabled = true;
+      try{
+        const res = await fetch('/api/trigger');
+        const data = await res.json();
+        lastJson = data;
+        lastRunEl.textContent = new Date().toLocaleString();
+        lastStatusEl.textContent = res.ok ? 'OK' : ('ERR '+res.status);
+        statusEl.textContent = res.ok ? 'Success' : ('Failed: '+res.status);
+        renderOutput();
+      }catch(err){
+        lastJson = { error: String(err) };
+        outputEl.textContent = 'Request failed: '+err;
+        statusEl.textContent = 'Request failed';
+      } finally{
+        runBtn.disabled = false;
+      }
+    }
+
+    function renderOutput(){
+      if (!lastJson){ outputEl.textContent = 'No output yet. Click "Send Request" to begin.'; return; }
+      if (pretty){
+        outputEl.textContent = JSON.stringify(lastJson, null, 2);
+      } else {
+        outputEl.textContent = JSON.stringify(lastJson);
+      }
+    }
+  </script>
 </body>
 </html>
