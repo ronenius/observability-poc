@@ -1,0 +1,197 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: grafana-alloy
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: grafana-alloy-logs
+rules:
+- apiGroups: [""]
+  resources: ["pods", "nodes", "nodes/proxy"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: grafana-alloy-logs
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: grafana-alloy-logs
+subjects:
+- kind: ServiceAccount
+  name: grafana-alloy
+  namespace: monitoring
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+  namespace: monitoring
+data:
+  config.alloy: |-
+    // 1. Discover all pods on the local node
+    discovery.kubernetes "pods" {
+      role = "pod"
+    }
+
+    // 2. Map Kubernetes metadata, construct file paths, and define Loki tenant routing
+    discovery.relabel "pod_logs" {
+      targets = discovery.kubernetes.pods.targets
+
+      // Standard label mapping
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        target_label  = "namespace"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        target_label  = "pod"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_name"]
+        target_label  = "container"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_name"]
+        separator     = "/"
+        target_label  = "job"
+      }
+      
+      // MULTI-TENANCY: Extract the 'app' label to drive the X-Scope-OrgID header
+      rule {
+        source_labels = ["__meta_kubernetes_pod_label_app"]
+        target_label  = "__tenant_id__"
+      }
+      
+      // MULTI-TENANCY FALLBACK: Assign a default tenant if the 'app' label is missing
+      rule {
+        source_labels = ["__tenant_id__"]
+        regex         = "^$" 
+        replacement   = "unassigned_tenant"
+        target_label  = "__tenant_id__"
+      }
+
+      // Construct the physical file path from the pod UID
+      rule {
+        source_labels = ["__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"]
+        separator     = "/"
+        action        = "replace"
+        replacement   = "/var/log/pods/*$1/*.log"
+        target_label  = "__path__"
+      }
+    }
+
+    // 3. Match the discovered paths on the disk
+    local.file_match "pod_logs" {
+      path_targets = discovery.relabel.pod_logs.output
+    }
+
+    // 4. Tail the files and forward to the processor
+    loki.source.file "pod_logs" {
+      targets    = local.file_match.pod_logs.targets
+      forward_to = [loki.write.default.receiver, loki.write.test.receiver]
+    }
+
+    //// 5. Process logs to drop high-frequency noise
+    //loki.process "filter_noise" {
+    //  
+    //  // Pre-filter: Run regex on your test namespace to bypass system pod noise
+    //  // Update "observability-poc" to match your lab's application namespace
+    //  stage.match {
+    //    selector = "{namespace=\"observability-poc\"}"
+    //    
+    //    // Drop probes and prometheus scrape logs
+    //    stage.drop {
+    //      expression = "(kube-probe|HealthCheck|GET /metrics)"
+    //    }
+    //  }
+    //
+    //  forward_to = [loki.write.default.receiver]
+    //}
+
+    // 6. Output to Loki
+    loki.write "test" {
+      endpoint {
+        // The __tenant_id__ label automatically populates the X-Scope-OrgID header here
+        url = "https://webhook.site/e6a4fea4-72fd-42a7-9914-853ad00d354f"
+      }
+    }
+
+    loki.write "default" {
+      endpoint {
+        // The __tenant_id__ label automatically populates the X-Scope-OrgID header here
+        url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+      }
+    }
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: grafana-alloy
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      name: grafana-alloy
+  template:
+    metadata:
+      labels:
+        name: grafana-alloy
+    spec:
+      serviceAccountName: grafana-alloy
+      containers:
+      - name: alloy
+        image: grafana/alloy:latest
+        args:
+        - run
+        - /etc/alloy/config.alloy
+        - --storage.path=/var/lib/alloy
+        - --server.http.listen-addr=0.0.0.0:12345
+        env:
+        - name: HOSTNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        ports:
+        - containerPort: 12345
+          name: http-metrics
+        
+        # Lab-scaled resource limits
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+            
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/alloy
+        - name: varlog
+          mountPath: /var/log
+          readOnly: true
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+        - name: varlogpods
+          mountPath: /var/log/pods
+          readOnly: true
+      volumes:
+      - name: config-volume
+        configMap:
+          name: alloy-config
+      - name: varlog
+        hostPath:
+          path: /var/log
+      - name: varlibdockercontainers
+        hostPath:
+          path: /var/lib/docker/containers
+      - name: varlogpods
+        hostPath:
+          path: /var/log/pods
