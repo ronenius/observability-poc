@@ -106,6 +106,7 @@ metadata:
 type: Opaque
 stringData:
   OPENAI_API_KEY: "sk-placeholder"
+  GEMINI_API_KEY: "your-gemini-api-key-here"
   GRAFANA_USER: "admin"
   GRAFANA_PASSWORD: "9oCV8ish5xVlGx1Kl4K8kTn3CJIb34QGad2B6Dc3"
   SPLUNK_USER: "admin"
@@ -118,7 +119,7 @@ metadata:
   namespace: holmes
 data:
   config.yaml: |
-    model: "gpt-4o"
+    model: "gemini/gemini-3.6-flash"
     alertmanager_url: "http://prometheus-stack-kube-prom-alertmanager.monitoring.svc.cluster.local:9093"
     toolsets:
       kubernetes/core:
@@ -220,6 +221,19 @@ spec:
                 secretKeyRef:
                   name: holmes-secrets
                   key: OPENAI_API_KEY
+                  optional: true
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: holmes-secrets
+                  key: GEMINI_API_KEY
+                  optional: true
+            - name: GOOGLE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: holmes-secrets
+                  key: GEMINI_API_KEY
+                  optional: true
             - name: SPLUNK_USER
               valueFrom:
                 secretKeyRef:
