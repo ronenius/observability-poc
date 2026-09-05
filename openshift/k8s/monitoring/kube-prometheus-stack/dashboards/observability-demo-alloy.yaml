@@ -289,6 +289,18 @@ data:
                     "value": 100
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "trace_id"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 260
+                  }
+                ]
               }
             ]
           },
@@ -343,7 +355,8 @@ data:
                     "Time",
                     "service_name",
                     "severity_text",
-                    "Line"
+                    "Line",
+                    "trace_id"
                   ]
                 }
               }
@@ -357,7 +370,8 @@ data:
                   "Line": 3,
                   "Time": 0,
                   "service_name": 1,
-                  "severity_text": 2
+                  "severity_text": 2,
+                  "trace_id": 4
                 },
                 "renameByName": {}
               }
