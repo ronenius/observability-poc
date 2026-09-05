@@ -1,0 +1,605 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-observability-demo-alloy
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  observability-demo-alloy.json: |-
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": {
+              "type": "grafana",
+              "uid": "-- Grafana --"
+            },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "gridPos": {
+            "h": 9,
+            "w": 3,
+            "x": 0,
+            "y": 0
+          },
+          "id": 5,
+          "options": {
+            "code": {
+              "language": "plaintext",
+              "showLineNumbers": false,
+              "showMiniMap": false
+            },
+            "content": "<a href=\"/d/observability-alloy/observability-demo-alloy?orgId=1&from=now-15m&to=now&timezone=browser&var-Filters=&var-traceId=.%2A&refresh=5s\" class=\"btn btn-secondary\">Reset Dashboard</a>\n",
+            "mode": "html"
+          },
+          "pluginVersion": "12.4.0",
+          "title": "Reset",
+          "type": "text"
+        },
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "aftjorvtpr20wc"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "fixedColor": "transparent",
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "footer": {
+                  "reducers": []
+                },
+                "inspect": false
+              },
+              "links": [
+                {
+                  "title": "View Waterfall",
+                  "url": "/d/${__dashboard.uid}?var-traceId=${__data.fields.traceID}"
+                }
+              ],
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "transparent",
+                    "value": 0
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Trace ID"
+                },
+                "properties": [
+                  {
+                    "id": "links"
+                  },
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "View Waterfall",
+                        "url": "/d/${__dashboard.uid}?var-traceId=${__data.fields.traceID}"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 21,
+            "x": 3,
+            "y": 0
+          },
+          "id": 4,
+          "options": {
+            "cellHeight": "sm",
+            "showHeader": true,
+            "sortBy": []
+          },
+          "pluginVersion": "12.4.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "tempo",
+                "uid": "aftjorvtpr20wc"
+              },
+              "filters": [
+                {
+                  "id": "c264666a",
+                  "operator": "=",
+                  "scope": "span"
+                },
+                {
+                  "id": "status",
+                  "isCustomValue": false,
+                  "operator": "=",
+                  "scope": "intrinsic",
+                  "tag": "status",
+                  "value": "$TraceFilter",
+                  "valueType": "keyword"
+                },
+                {
+                  "id": "service-name",
+                  "isCustomValue": false,
+                  "operator": "=",
+                  "scope": "resource",
+                  "tag": "service.name",
+                  "value": [],
+                  "valueType": "string"
+                }
+              ],
+              "limit": 100,
+              "metricsQueryType": "range",
+              "query": "{} | select(status, resource.service.name)",
+              "queryType": "traceqlSearch",
+              "refId": "A",
+              "serviceMapUseNativeHistograms": false,
+              "spss": 100,
+              "tableType": "traces"
+            }
+          ],
+          "title": "Traces",
+          "transformations": [
+            {
+              "id": "extractFields",
+              "options": {
+                "delimiter": ",",
+                "format": "regexp",
+                "keepTime": false,
+                "replace": false,
+                "source": "traceIdHidden"
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "status": false
+                },
+                "includeByName": {},
+                "indexByName": {
+                  "Duration": 9,
+                  "Name": 6,
+                  "NewField": 0,
+                  "Span ID": 4,
+                  "Start time": 5,
+                  "Trace Name": 3,
+                  "Trace Service": 2,
+                  "service.name": 7,
+                  "status": 8,
+                  "traceIdHidden": 1
+                },
+                "renameByName": {
+                  "NewField": "Trace ID"
+                }
+              }
+            }
+          ],
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "afs6nbwsm6n0gf"
+          },
+          "description": "If specific trace selected, shows only logs related to this trace",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "footer": {
+                  "reducers": []
+                },
+                "inspect": false
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": 0
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "service_name"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 110
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Time"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 180
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Line"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 600
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "severity_text"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 100
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "trace_id"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 260
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 12,
+            "w": 24,
+            "x": 0,
+            "y": 9
+          },
+          "id": 2,
+          "options": {
+            "cellHeight": "sm",
+            "showHeader": true,
+            "sortBy": [
+              {
+                "desc": true,
+                "displayName": "Time"
+              }
+            ]
+          },
+          "pluginVersion": "12.4.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "afs6nbwsm6n0gf"
+              },
+              "direction": "backward",
+              "editorMode": "code",
+              "expr": "{namespace=\"observability-poc\", container=~\"backend1|backend2|frontend\"} | regexp `(?:\"trace_id\":\\s*\"|trace_?id=)(?P<trace_id>[a-fA-F0-9]+)` | trace_id =~ `.*${traceId}.*`",
+              "queryType": "range",
+              "refId": "A"
+            }
+          ],
+          "title": "Logs",
+          "transformations": [
+            {
+              "id": "extractFields",
+              "options": {
+                "delimiter": ",",
+                "format": "kvp",
+                "keepTime": false,
+                "replace": false,
+                "source": "labels"
+              }
+            },
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "Time",
+                    "Line",
+                    "service_name",
+                    "trace_id",
+                    "detected_level"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "includeByName": {},
+                "indexByName": {
+                  "Line": 4,
+                  "Time": 0,
+                  "detected_level": 3,
+                  "service_name": 1,
+                  "trace_id": 2
+                },
+                "renameByName": {
+                  "detected_level": "severity_text"
+                }
+              }
+            },
+            {
+              "id": "formatString",
+              "options": {
+                "outputFormat": "Upper Case",
+                "stringField": "severity_text"
+              }
+            }
+          ],
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "aftjorvtpr20wc"
+          },
+          "description": "A trace has to be selected from the traces table to show here",
+          "gridPos": {
+            "h": 24,
+            "w": 24,
+            "x": 0,
+            "y": 21
+          },
+          "id": 3,
+          "options": {
+            "spanFilters": {
+              "adhocFilters": [],
+              "criticalPathOnly": false,
+              "matchesOnly": false
+            }
+          },
+          "pluginVersion": "12.4.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "tempo",
+                "uid": "aftjorvtpr20wc"
+              },
+              "filters": [
+                {
+                  "id": "efb97f40",
+                  "operator": "=",
+                  "scope": "span"
+                },
+                {
+                  "id": "service-name",
+                  "isCustomValue": false,
+                  "operator": "=",
+                  "scope": "resource",
+                  "tag": "service.name",
+                  "value": [],
+                  "valueType": "string"
+                },
+                {
+                  "id": "duration-type",
+                  "value": "span"
+                }
+              ],
+              "limit": 20,
+              "metricsQueryType": "range",
+              "query": "${traceId}",
+              "queryType": "traceql",
+              "refId": "A",
+              "serviceMapUseNativeHistograms": false,
+              "tableType": "traces"
+            }
+          ],
+          "title": "View Waterfall of Trace",
+          "type": "traces"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": 0
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 16,
+            "w": 24,
+            "x": 0,
+            "y": 45
+          },
+          "id": 1,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "12.4.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "exemplar": true,
+              "expr": "http_server_request_duration_seconds_bucket",
+              "instant": false,
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "New panel",
+          "type": "timeseries"
+        }
+      ],
+      "preload": false,
+      "refresh": "5s",
+      "schemaVersion": 42,
+      "tags": [],
+      "templating": {
+        "list": [
+          {
+            "current": {
+              "text": ".*",
+              "value": ".*"
+            },
+            "hide": 2,
+            "name": "traceId",
+            "options": [
+              {
+                "selected": true,
+                "text": ".*",
+                "value": ".*"
+              }
+            ],
+            "query": ".*",
+            "type": "textbox"
+          },
+          {
+            "current": {
+              "text": "",
+              "value": ""
+            },
+            "label": "Show Only Failed Traces",
+            "name": "TraceFilter",
+            "options": [
+              {
+                "text": "error",
+                "value": "error"
+              },
+              {
+                "text": "",
+                "value": ""
+              }
+            ],
+            "type": "switch"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-15m",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "observability-demo-alloy",
+      "uid": "observability-alloy",
+      "version": 1,
+      "weekStart": ""
+    }
