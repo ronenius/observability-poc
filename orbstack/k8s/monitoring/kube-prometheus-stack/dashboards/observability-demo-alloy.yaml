@@ -289,18 +289,6 @@ data:
                     "value": 100
                   }
                 ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "trace_id"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 260
-                  }
-                ]
               }
             ]
           },
@@ -330,7 +318,7 @@ data:
               },
               "direction": "backward",
               "editorMode": "code",
-              "expr": "{namespace=\"observability-poc\", container=~\"backend1|backend2|frontend\"} | regexp `(?:\"trace_id\":\\s*\"|trace_?id=)(?P<trace_id>[a-fA-F0-9]+)` | trace_id =~ `.*${traceId}.*`",
+              "expr": "{namespace=\"observability-poc\", container=~\"backend1|backend2|frontend\"} | regexp `(?:\"trace_id\":\\s*\"|trace_?id=)(?P<trace_id>[a-fA-F0-9]+)` | trace_id =~ `.*${traceId}.*` | regexp `(?:\"level\":\\s*\"|\"log\\.level\":\\s*\"|\\d{4}-\\d{2}-\\d{2}\\s+\\d{2}:\\d{2}:\\d{2},\\d+\\s+)(?P<severity_text>[a-zA-Z]+)` | regexp `\"message\":\\s*\"(?P<msg_json>[^\"\\\\]*(?:\\\\.[^\"\\\\]*)*)\"` | regexp `\\]\\s*-\\s*(?P<msg_text>.*)` | line_format `{{ if .msg_json }}{{ .msg_json }}{{ else if .msg_text }}{{ .msg_text }}{{ else }}{{ __line__ }}{{ end }}` | label_format severity_text=`{{ if .severity_text }}{{ .severity_text }}{{ else if .detected_level }}{{ .detected_level }}{{ else }}INFO{{ end }}`",
               "queryType": "range",
               "refId": "A"
             }
@@ -353,10 +341,9 @@ data:
                 "include": {
                   "names": [
                     "Time",
-                    "Line",
                     "service_name",
-                    "trace_id",
-                    "detected_level"
+                    "severity_text",
+                    "Line"
                   ]
                 }
               }
@@ -367,15 +354,12 @@ data:
                 "excludeByName": {},
                 "includeByName": {},
                 "indexByName": {
-                  "Line": 4,
+                  "Line": 3,
                   "Time": 0,
-                  "detected_level": 3,
                   "service_name": 1,
-                  "trace_id": 2
+                  "severity_text": 2
                 },
-                "renameByName": {
-                  "detected_level": "severity_text"
-                }
+                "renameByName": {}
               }
             },
             {
