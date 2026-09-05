@@ -55,11 +55,27 @@ kubectl apply -f k8s/backend1.yaml
 kubectl apply -f k8s/frontend.yaml
 ```
 
-### 4. Deploy HolmesGPT Docs (Optional)
+### 4. Deploy HolmesGPT AI Agent & Docs
 ```bash
+# Deploy HolmesGPT with all connected toolsets (Prometheus, Loki, Tempo, Grafana, Splunk, K8s)
+kubectl apply -f k8s/holmes/holmes.yaml
+
+# Set your LLM API Key (OpenAI, Gemini, or Claude) in the secret:
+kubectl create secret generic holmes-secrets -n holmes \
+  --from-literal=OPENAI_API_KEY="<your-api-key>" \
+  --from-literal=GRAFANA_USER="admin" \
+  --from-literal=GRAFANA_PASSWORD="9oCV8ish5xVlGx1Kl4K8kTn3CJIb34QGad2B6Dc3" \
+  --from-literal=SPLUNK_USER="admin" \
+  --from-literal=SPLUNK_PASSWORD="Admin@123456" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Deploy HolmesGPT Docs (Optional)
 kubectl apply -f holmes-docs/k8s.yaml
 ```
 
 ### 5. Access Endpoints
 - **Frontend Dashboard**: `kubectl get svc frontend -n observability-poc` (open the external IP / port in your browser)
-- **Grafana**: `kubectl port-forward svc/prometheus-stack-grafana -n monitoring 3000:80` (open `http://localhost:3000`, user: `admin`, pass: `prom-operator`)
+- **Grafana**: `kubectl port-forward svc/prometheus-stack-grafana -n monitoring 3000:80` (open `http://localhost:3000`, user: `admin`)
+- **Splunk Enterprise**: `http://localhost:8000` (user: `admin`, pass: `Admin@123456`)
+- **HolmesGPT API**: `http://localhost:5050` (`/healthz`, `/readyz`, `/api/info`, `/api/chat`)
+

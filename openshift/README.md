@@ -108,8 +108,21 @@ oc apply -f k8s/frontend.yaml
 
 ---
 
-### Step 5: Deploy HolmesGPT Airgapped Docs (Optional)
+### Step 5: Deploy HolmesGPT AI Agent & Docs
 ```bash
+# Deploy HolmesGPT with all connected toolsets (Prometheus, Loki, Tempo, Grafana, Splunk, K8s)
+oc apply -f k8s/holmes/holmes.yaml
+
+# Set your LLM API Key (OpenAI, Gemini, or Claude) in the secret:
+oc create secret generic holmes-secrets -n holmes \
+  --from-literal=OPENAI_API_KEY="<your-api-key>" \
+  --from-literal=GRAFANA_USER="admin" \
+  --from-literal=GRAFANA_PASSWORD="<grafana-admin-password>" \
+  --from-literal=SPLUNK_USER="admin" \
+  --from-literal=SPLUNK_PASSWORD="Admin@123456" \
+  --dry-run=client -o yaml | oc apply -f -
+
+# Deploy HolmesGPT Airgapped Docs (Optional)
 oc apply -f holmes-docs/k8s.yaml
 ```
 
@@ -124,6 +137,9 @@ oc get route frontend -n observability-poc
 
 # Grafana Dashboard
 oc get route grafana -n monitoring
+
+# HolmesGPT API Route
+oc get route holmes -n holmes
 
 # HolmesGPT Docs
 oc get route holmesgpt-docs

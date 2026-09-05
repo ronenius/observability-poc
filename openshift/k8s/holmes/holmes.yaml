@@ -1,0 +1,303 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: holmes
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: holmes
+  namespace: holmes
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: holmes-cluster-role
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - pods/status
+      - services
+      - endpoints
+      - persistentvolumeclaims
+      - persistentvolumes
+      - configmaps
+      - events
+      - namespaces
+      - nodes
+      - resourcequotas
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - daemonsets
+      - replicasets
+      - statefulsets
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps.openshift.io"]
+    resources:
+      - deploymentconfigs
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources:
+      - jobs
+      - cronjobs
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources:
+      - horizontalpodautoscalers
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources:
+      - ingresses
+      - networkpolicies
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources:
+      - poddisruptionbudgets
+    verbs: ["get", "list"]
+  - apiGroups: ["monitoring.coreos.com"]
+    resources:
+      - alertmanagers
+      - prometheuses
+      - servicemonitors
+      - podmonitors
+      - prometheusrules
+      - scrapeconfigs
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources:
+      - customresourcedefinitions
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: holmes-cluster-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: holmes-cluster-role
+subjects:
+  - kind: ServiceAccount
+    name: holmes
+    namespace: holmes
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: holmes-cluster-monitoring-view
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-monitoring-view
+subjects:
+  - kind: ServiceAccount
+    name: holmes
+    namespace: holmes
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: holmes-secrets
+  namespace: holmes
+type: Opaque
+stringData:
+  OPENAI_API_KEY: "sk-placeholder"
+  GRAFANA_USER: "admin"
+  GRAFANA_PASSWORD: "9oCV8ish5xVlGx1Kl4K8kTn3CJIb34QGad2B6Dc3"
+  SPLUNK_USER: "admin"
+  SPLUNK_PASSWORD: "Admin@123456"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: holmes-config
+  namespace: holmes
+data:
+  config.yaml: |
+    model: "gpt-4o"
+    alertmanager_url: "http://prometheus-stack-kube-prom-alertmanager.monitoring.svc.cluster.local:9093"
+    toolsets:
+      kubernetes/core:
+        enabled: true
+      prometheus/metrics:
+        enabled: true
+        subtype: "prometheus"
+        config:
+          prometheus_url: "http://prometheus-stack-kube-prom-prometheus.monitoring.svc.cluster.local:9090"
+      grafana/dashboards:
+        enabled: true
+        config:
+          api_url: "http://prometheus-stack-grafana.monitoring.svc.cluster.local:80"
+          username: "admin"
+          password: "9oCV8ish5xVlGx1Kl4K8kTn3CJIb34QGad2B6Dc3"
+      grafana/loki:
+        enabled: true
+        config:
+          api_url: "http://loki-gateway.monitoring.svc.cluster.local"
+          additional_headers:
+            X-Scope-OrgID: "demo_app"
+      grafana/tempo:
+        enabled: true
+        config:
+          api_url: "http://tempo.monitoring.svc.cluster.local:3200"
+          additional_headers:
+            X-Scope-OrgID: "demo_app"
+    custom_toolsets:
+      - "/var/holmes/config/splunk_toolset.yaml"
+
+  splunk_toolset.yaml: |
+    toolsets:
+      splunk:
+        description: "Search and retrieve logs from Splunk Enterprise using SPL queries"
+        prerequisites:
+          - command: "curl --version"
+        tags:
+          - core
+        tools:
+          - name: splunk_search
+            description: "Execute a Splunk search query (SPL) and return matching log events in JSON format"
+            command: |
+              curl -s -k -u "${SPLUNK_USER}:${SPLUNK_PASSWORD}" \
+                "https://splunk.splunk.svc.cluster.local:8089/services/search/jobs/export" \
+                --data-urlencode "search=search {{ splunk_query }}" \
+                --data-urlencode "output_mode=json" \
+                --data-urlencode "earliest_time={{ earliest | default('-1h') }}" \
+                --data-urlencode "latest_time={{ latest | default('now') }}"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: holmes
+  namespace: holmes
+  labels:
+    app: holmes
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: holmes
+  template:
+    metadata:
+      labels:
+        app: holmes
+    spec:
+      enableServiceLinks: false
+      serviceAccountName: holmes
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: holmes
+          image: image-registry.openshift-image-registry.svc:5000/holmes/holmes:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - "/bin/sh"
+            - "-c"
+            - "mkdir -p /var/holmes/config && cp -L /etc/holmes/config-ro/* /var/holmes/config/ && exec python3 -u server.py"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: 5050
+          env:
+            - name: HOLMES_PORT
+              value: "5050"
+            - name: IS_OPENSHIFT
+              value: "True"
+            - name: HOLMES_CONFIGPATH_DIR
+              value: "/var/holmes/config"
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: holmes-secrets
+                  key: OPENAI_API_KEY
+            - name: SPLUNK_USER
+              valueFrom:
+                secretKeyRef:
+                  name: holmes-secrets
+                  key: SPLUNK_USER
+            - name: SPLUNK_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: holmes-secrets
+                  key: SPLUNK_PASSWORD
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: config-ro-volume
+              mountPath: /etc/holmes/config-ro
+              readOnly: true
+            - name: runtime-volume
+              mountPath: /var/holmes
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes:
+        - name: config-ro-volume
+          configMap:
+            name: holmes-config
+        - name: runtime-volume
+          emptyDir: {}
+        - name: tmp-volume
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: holmes
+  namespace: holmes
+  labels:
+    app: holmes
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 5050
+      targetPort: 5050
+      protocol: TCP
+  selector:
+    app: holmes
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: holmes
+  namespace: holmes
+  labels:
+    app: holmes
+spec:
+  to:
+    kind: Service
+    name: holmes
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
