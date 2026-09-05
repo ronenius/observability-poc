@@ -31,6 +31,16 @@ spec:
       labels:
         app: splunk
     spec:
+      initContainers:
+      - name: setup-custom-app
+        image: splunk/splunk:latest
+        imagePullPolicy: IfNotPresent
+        command: ['/bin/sh', '-c', 'mkdir -p /app/default && cp -f /config/* /app/default/']
+        volumeMounts:
+        - name: splunk-custom-config
+          mountPath: /config
+        - name: splunk-app-observability
+          mountPath: /app
       containers:
       - name: splunk
         image: splunk/splunk:latest
@@ -69,10 +79,64 @@ spec:
         volumeMounts:
         - name: splunk-storage
           mountPath: /opt/splunk/var
+        - name: splunk-app-observability
+          mountPath: /opt/splunk/etc/apps/observability
       volumes:
       - name: splunk-storage
         persistentVolumeClaim:
           claimName: splunk-data
+      - name: splunk-custom-config
+        configMap:
+          name: splunk-custom-config
+      - name: splunk-app-observability
+        emptyDir: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: splunk-custom-config
+  namespace: splunk
+data:
+  app.conf: |
+    [install]
+    is_configured = 1
+    state = enabled
+
+    [ui]
+    is_visible = 0
+    label = Observability Indexes and HEC Tokens
+
+  indexes.conf: |
+    [frontend]
+    coldPath = $SPLUNK_DB/frontend/colddb
+    homePath = $SPLUNK_DB/frontend/db
+    thawedPath = $SPLUNK_DB/frontend/thaweddb
+
+    [backend]
+    coldPath = $SPLUNK_DB/backend/colddb
+    homePath = $SPLUNK_DB/backend/db
+    thawedPath = $SPLUNK_DB/backend/thaweddb
+
+  inputs.conf: |
+    [http]
+    disabled = 0
+    enableSSL = 0
+
+    [http://splunk_hec_token]
+    disabled = 0
+    token = 00000000-0000-0000-0000-000000000000
+
+    [http://frontend_hec]
+    disabled = 0
+    index = frontend
+    indexes = frontend
+    token = 11111111-1111-1111-1111-111111111111
+
+    [http://backend_hec]
+    disabled = 0
+    index = backend
+    indexes = backend
+    token = 22222222-2222-2222-2222-222222222222
 ---
 apiVersion: v1
 kind: Service
