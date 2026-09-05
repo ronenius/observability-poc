@@ -42,6 +42,7 @@ TARGET_NS="observability-poc"
 oc image mirror docker.io/your-registry/frontend:latest ${INTERNAL_REGISTRY}/${TARGET_NS}/frontend:latest
 oc image mirror docker.io/your-registry/backend1:latest ${INTERNAL_REGISTRY}/${TARGET_NS}/backend1:latest
 oc image mirror docker.io/your-registry/backend2:latest ${INTERNAL_REGISTRY}/${TARGET_NS}/backend2:latest
+oc image mirror docker.io/your-registry/holmes-ui:latest ${INTERNAL_REGISTRY}/${TARGET_NS}/holmes-ui:latest
 
 # OTel Operator and Auto-Instrumentation init containers
 oc image mirror ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-python:latest ${INTERNAL_REGISTRY}/${TARGET_NS}/autoinstrumentation-python:latest
@@ -122,6 +123,9 @@ oc create secret generic holmes-secrets -n holmes \
   --from-literal=SPLUNK_PASSWORD="Admin@123456" \
   --dry-run=client -o yaml | oc apply -f -
 
+# Deploy HolmesGPT Web Chat GUI
+oc apply -f k8s/holmes/ui.yaml
+
 # Deploy HolmesGPT Airgapped Docs (Optional)
 oc apply -f holmes-docs/k8s.yaml
 ```
@@ -137,6 +141,9 @@ oc get route frontend -n observability-poc
 
 # Grafana Dashboard
 oc get route grafana -n monitoring
+
+# HolmesGPT Web Chat GUI
+oc get route holmes-ui -n holmes
 
 # HolmesGPT API Route
 oc get route holmes -n holmes

@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: holmes-ui
+  namespace: holmes
+  labels:
+    app: holmes-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: holmes-ui
+  template:
+    metadata:
+      labels:
+        app: holmes-ui
+    spec:
+      containers:
+        - name: holmes-ui
+          image: your-registry/holmes-ui:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: holmes-ui
+  namespace: holmes
+  labels:
+    app: holmes-ui
+spec:
+  type: LoadBalancer
+  ports:
+    - name: http
+      port: 5055
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    app: holmes-ui

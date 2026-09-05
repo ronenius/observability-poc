@@ -26,6 +26,9 @@ docker build -t your-registry/backend1:latest ./backend1
 docker build -t your-registry/backend2:latest ./backend2
 docker build -t your-registry/frontend:latest ./frontend
 
+# HolmesGPT Web Chat GUI
+docker build -t your-registry/holmes-ui:latest ./holmes-ui
+
 # HolmesGPT Docs (Optional)
 docker build -t your-registry/holmes-docs:latest ./holmes-docs
 ```
@@ -69,6 +72,9 @@ kubectl create secret generic holmes-secrets -n holmes \
   --from-literal=SPLUNK_PASSWORD="Admin@123456" \
   --dry-run=client -o yaml | kubectl apply -f -
 
+# Deploy HolmesGPT Web Chat GUI
+kubectl apply -f k8s/holmes/ui.yaml
+
 # Deploy HolmesGPT Docs (Optional)
 kubectl apply -f holmes-docs/k8s.yaml
 ```
@@ -77,5 +83,6 @@ kubectl apply -f holmes-docs/k8s.yaml
 - **Frontend Dashboard**: `kubectl get svc frontend -n observability-poc` (open the external IP / port in your browser)
 - **Grafana**: `kubectl port-forward svc/prometheus-stack-grafana -n monitoring 3000:80` (open `http://localhost:3000`, user: `admin`)
 - **Splunk Enterprise**: `http://localhost:8000` (user: `admin`, pass: `Admin@123456`)
+- **HolmesGPT Chat GUI**: `http://localhost:5055` (Interactive AI SRE Chat Interface connected to all telemetry toolsets)
 - **HolmesGPT API**: `http://localhost:5050` (`/healthz`, `/readyz`, `/api/info`, `/api/chat`)
 

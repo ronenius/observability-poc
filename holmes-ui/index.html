@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HolmesGPT — AI Incident Investigation & Telemetry Agent</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236366f1'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z'/></svg>">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Top Navigation Bar -->
+    <header class="app-header">
+      <div class="header-left">
+        <button id="toggle-sidebar-btn" class="icon-btn" title="Toggle Sidebar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        </button>
+        <div class="brand">
+          <div class="brand-avatar">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/><circle cx="12" cy="12" r="4"/></svg>
+          </div>
+          <div class="brand-info">
+            <span class="brand-title">HolmesGPT</span>
+            <span class="brand-subtitle">Autonomous SRE & Telemetry Agent</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <div class="system-status-pill" id="system-status">
+          <span class="status-dot"></span>
+          <span class="status-text" id="status-text">Connecting...</span>
+        </div>
+        <div class="model-badge" id="model-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14.93V17a1 1 0 0 1-2 0v-.07A8 8 0 0 1 4.07 11H5a1 1 0 0 1 0-2h-.93A8 8 0 0 1 11 4.07V5a1 1 0 0 1 2 0v-.93A8 8 0 0 1 19.93 9H19a1 1 0 0 1 0 2h.93A8 8 0 0 1 13 16.93z"/></svg>
+          <span id="model-name">gpt-4o</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <button id="clear-chat-btn" class="btn btn-secondary" title="Clear conversation history">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <span>Reset Chat</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Container (Sidebar + Chat View) -->
+    <div class="main-container">
+      <!-- Left Sidebar: Connected Telemetry Toolsets & Quick Prompts -->
+      <aside class="app-sidebar" id="app-sidebar">
+        <!-- Telemetry Sources Section -->
+        <div class="sidebar-section">
+          <div class="section-header">
+            <span class="section-title">Telemetry Toolsets</span>
+            <span class="badge-count" id="toolset-count">7 Active</span>
+          </div>
+          <div class="toolset-list" id="toolset-list">
+            <div class="toolset-card active" data-toolset="kubernetes/core">
+              <div class="toolset-icon k8s">☸️</div>
+              <div class="toolset-meta">
+                <span class="toolset-name">Kubernetes Core</span>
+                <span class="toolset-desc">API, Pods, Nodes & Logs</span>
+              </div>
+              <span class="toolset-badge">Ready</span>
+            </div>
+
+            <div class="toolset-card active" data-toolset="prometheus/metrics">
+              <div class="toolset-icon prom">🔥</div>
+              <div class="toolset-meta">
+                <span class="toolset-name">Prometheus</span>
+                <span class="toolset-desc">PromQL & Rule Alerts</span>
+              </div>
+              <span class="toolset-badge">Ready</span>
+            </div>
+
+            <div class="toolset-card active" data-toolset="alertmanager">
+              <div class="toolset-icon am">🚨</div>
+              <div class="toolset-meta">
+                <span class="toolset-name">Alertmanager</span>
+                <span class="toolset-desc">Firing Alerts & Route Triage</span>
+              </div>
+              <span class="toolset-badge">Ready</span>
+            </div>
+
+            <div class="toolset-card active" data-toolset="grafana/dashboards">
+              <div class="toolset-icon grafana">📊</div>
+              <div class="toolset-meta">
+                <span class="toolset-name">Grafana</span>
+                <span class="toolset-desc">Dashboards & Panel Queries</span>
+              </div>
+              <span class="toolset-badge">Ready</span>
+            </div>
+
+            <div class="toolset-card active" data-toolset="grafana/loki">
+              <div class="toolset-icon loki">🪵</div>
+              <div class="toolset-meta">
+                <span class="toolset-name">Grafana Loki</span>
+                <span class="toolset-desc">Central Log Stream (demo_app)</span>
+              </div>
+              <span class="toolset-badge">Ready</span>
+            </div>
+
+            <div class="toolset-card active" data-toolset="grafana/tempo">
+              <div class="toolset-icon tempo">⚡</div>
+              <div class="toolset-meta">
+                <span class="toolset-name">Grafana Tempo</span>
+                <span class="toolset-desc">Distributed TraceQL Spans</span>
+              </div>
+              <span class="toolset-badge">Ready</span>
+            </div>
+
+            <div class="toolset-card active" data-toolset="splunk">
+              <div class="toolset-icon splunk">>_</div>
+              <div class="toolset-meta">
+                <span class="toolset-name">Splunk Enterprise</span>
+                <span class="toolset-desc">SPL Search & Analytics</span>
+              </div>
+              <span class="toolset-badge">Ready</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Investigation Prompts -->
+        <div class="sidebar-section">
+          <div class="section-header">
+            <span class="section-title">One-Click Triage</span>
+          </div>
+          <div class="prompt-chips">
+            <button class="chip-btn" data-prompt="Investigate all active and firing alerts in Alertmanager. Provide a root cause analysis for each.">
+              🚨 Triage Firing Alerts
+            </button>
+            <button class="chip-btn" data-prompt="Check all pods in the monitoring and observability-poc namespaces. Are there any crash loops, pending pods, or recent restarts?">
+              🩺 Check Pod Restarts & Health
+            </button>
+            <button class="chip-btn" data-prompt="Query Prometheus for the top 5 pods consuming the most CPU and memory across the cluster.">
+              📈 Top CPU & Memory Usage
+            </button>
+            <button class="chip-btn" data-prompt="Search Loki for any ERROR or WARN logs in the demo_app tenant from the last 30 minutes.">
+              🔍 Search Loki for Errors
+            </button>
+            <button class="chip-btn" data-prompt="Run a search query in Splunk on index=main for recent error logs and summarize the findings.">
+              🪵 Search Splunk for Errors
+            </button>
+            <button class="chip-btn" data-prompt="Query Tempo traces for slow requests in the frontend and backend microservices taking longer than 500ms.">
+              ⏱️ Find Slow Distributed Traces
+            </button>
+          </div>
+        </div>
+
+        <!-- Footnote Info -->
+        <div class="sidebar-footer">
+          <span>Connected to local cluster</span>
+          <span id="version-tag">Holmes v0.40.0</span>
+        </div>
+      </aside>
+
+      <!-- Center Chat Area -->
+      <main class="chat-area">
+        <!-- Messages Feed Container -->
+        <div class="messages-container" id="messages-container">
+          <!-- Empty State Screen -->
+          <div class="empty-state" id="empty-state">
+            <div class="empty-icon-glow">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/><circle cx="12" cy="12" r="4"/></svg>
+            </div>
+            <h2>HolmesGPT Incident Assistant</h2>
+            <p>Your AI SRE agent is connected to the Kubernetes cluster, Prometheus, Loki, Tempo, Splunk, Alertmanager, and Grafana. Ask a question or trigger an investigation.</p>
+
+            <div class="starter-grid">
+              <div class="starter-card" data-prompt="Perform a complete health check of the observability-poc and monitoring stacks. What is functioning properly and what needs attention?">
+                <div class="starter-icon">🛡️</div>
+                <div class="starter-text">
+                  <strong>Full Cluster Health Audit</strong>
+                  <span>Analyze pods, nodes, and monitoring services</span>
+                </div>
+              </div>
+
+              <div class="starter-card" data-prompt="Are there any firing alerts in Alertmanager right now? Diagnose why they are firing.">
+                <div class="starter-icon">🚨</div>
+                <div class="starter-text">
+                  <strong>Diagnose Firing Alerts</strong>
+                  <span>Triage Alertmanager alerts & root causes</span>
+                </div>
+              </div>
+
+              <div class="starter-card" data-prompt="Compare recent logs in Loki and Splunk for backend1 and backend2. Do you see any anomalous log surges or errors?">
+                <div class="starter-icon">📊</div>
+                <div class="starter-text">
+                  <strong>Cross-Telemetry Analysis</strong>
+                  <span>Correlate logs across Loki & Splunk</span>
+                </div>
+              </div>
+
+              <div class="starter-card" data-prompt="What Grafana dashboards are currently available in the cluster and what metrics do they track?">
+                <div class="starter-icon">📈</div>
+                <div class="starter-text">
+                  <strong>Inspect Grafana Dashboards</strong>
+                  <span>List dashboards and panel metrics</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Message bubbles will be dynamically injected here -->
+        </div>
+
+        <!-- Chat Input Form -->
+        <div class="input-area">
+          <form id="chat-form" class="chat-form">
+            <div class="input-wrapper">
+              <textarea 
+                id="chat-input" 
+                placeholder="Ask Holmes anything about your cluster, metrics, logs, or alerts..." 
+                rows="1" 
+                autofocus
+              ></textarea>
+              <button type="submit" id="send-btn" class="send-btn" title="Send query (Enter)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+              </button>
+            </div>
+            <div class="input-helper">
+              <span>Press <kbd>Enter</kbd> to send, <kbd>Shift</kbd> + <kbd>Enter</kbd> for newline</span>
+              <span class="context-hint">Context preserved for multi-turn investigation</span>
+            </div>
+          </form>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
