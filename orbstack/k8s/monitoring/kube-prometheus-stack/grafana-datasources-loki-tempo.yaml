@@ -9,30 +9,28 @@ metadata:
 data:
   loki-tempo-datasources.yaml: |-
     apiVersion: 1
-    datasources:
-      - name: Loki
-        type: loki
-        uid: loki
-        access: proxy
-        url: http://loki.monitoring.svc.cluster.local:3100
-        jsonData:
-          maxLines: 1500
-          derivedFields:
-            - matcherRegex: "(?:trace_?id|traceId|traceparent)[=\": ]+([a-f0-9]{16,32})"
-              name: TraceID
-              url: "$${__value.raw}"
-              datasourceUid: tempo
 
-      - name: loki-demo-app
+    deleteDatasources:
+      - name: Loki
+        orgId: 1
+      - name: Tempo
+        orgId: 1
+
+    datasources:
+      # Unified Multi-Tenant Loki DataSource
+      - name: loki
         type: loki
         uid: afs6nbwsm6n0gf
         access: proxy
         url: http://loki-gateway.monitoring.svc.cluster.local
         jsonData:
+          maxLines: 1500
           derivedFields:
             - matcherRegex: 'trace_id=([a-fA-F0-9]+)'
               matcherType: regex
               name: backend_trace_id
+              url: '$${__value.raw}'
+              datasourceUid: aftjorvtpr20wc
             - matcherRegex: 'span_id=([a-fA-F0-9]+)'
               matcherType: regex
               name: backend_span_id
@@ -40,14 +38,16 @@ data:
               matcherType: regex
               name: backend_severity
 
-      - name: Tempo
+      # Unified Multi-Tenant Tempo DataSource (X-Scope-OrgID: demo_app)
+      - name: tempo-demo-app
         type: tempo
-        uid: tempo
+        uid: aftjorvtpr20wc
         access: proxy
         url: http://tempo.monitoring.svc.cluster.local:3200
         jsonData:
+          httpHeaderName1: "X-Scope-OrgID"
           tracesToLogsV2:
-            datasourceUid: loki
+            datasourceUid: afs6nbwsm6n0gf
             spanStartTimeShift: "-2m"
             spanEndTimeShift: "2m"
             tags: ["app", "container", "pod", "service.name"]
@@ -67,20 +67,6 @@ data:
           search:
             hide: false
           lokiSearch:
-            datasourceUid: loki
-
-      # Multi-Tenancy Tempo DataSource for demo_app (X-Scope-OrgID header)
-      - name: tempo-demo-app
-        type: tempo
-        uid: aftjorvtpr20wc
-        access: proxy
-        url: http://tempo.monitoring.svc.cluster.local:3200
-        jsonData:
-          httpHeaderName1: "X-Scope-OrgID"
-          tracesToLogsV2:
             datasourceUid: afs6nbwsm6n0gf
-            customQuery: false
-          tracesToMetrics:
-            datasourceUid: prometheus
         secureJsonData:
           httpHeaderValue1: "demo_app"

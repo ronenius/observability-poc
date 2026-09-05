@@ -253,7 +253,7 @@ data:
         {
           "datasource": {
             "type": "loki",
-            "uid": "loki"
+            "uid": "afs6nbwsm6n0gf"
           },
           "gridPos": {
             "h": 10,
@@ -275,7 +275,7 @@ data:
             {
               "datasource": {
                 "type": "loki",
-                "uid": "loki"
+                "uid": "afs6nbwsm6n0gf"
               },
               "editorMode": "code",
               "expr": "{namespace=~\"observability-poc|monitoring\"}",
