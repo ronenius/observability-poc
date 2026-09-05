@@ -23,11 +23,28 @@ data:
               url: "$${__value.raw}"
               datasourceUid: tempo
 
+      - name: loki-demo-app
+        type: loki
+        uid: afs6nbwsm6n0gf
+        access: proxy
+        url: http://loki-gateway.monitoring.svc.cluster.local
+        jsonData:
+          derivedFields:
+            - matcherRegex: 'trace_id=([a-fA-F0-9]+)'
+              matcherType: regex
+              name: backend_trace_id
+            - matcherRegex: 'span_id=([a-fA-F0-9]+)'
+              matcherType: regex
+              name: backend_span_id
+            - matcherRegex: '^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}(?:,\d{3})?\s(?:\[[^\]]+\]\s)?([A-Z]+)'
+              matcherType: regex
+              name: backend_severity
+
       - name: Tempo
         type: tempo
         uid: tempo
         access: proxy
-        url: http://tempo.monitoring.svc.cluster.local:3100
+        url: http://tempo.monitoring.svc.cluster.local:3200
         jsonData:
           tracesToLogsV2:
             datasourceUid: loki
@@ -51,3 +68,19 @@ data:
             hide: false
           lokiSearch:
             datasourceUid: loki
+
+      # Multi-Tenancy Tempo DataSource for demo_app (X-Scope-OrgID header)
+      - name: tempo-demo-app
+        type: tempo
+        uid: aftjorvtpr20wc
+        access: proxy
+        url: http://tempo.monitoring.svc.cluster.local:3200
+        jsonData:
+          httpHeaderName1: "X-Scope-OrgID"
+          tracesToLogsV2:
+            datasourceUid: afs6nbwsm6n0gf
+            customQuery: false
+          tracesToMetrics:
+            datasourceUid: prometheus
+        secureJsonData:
+          httpHeaderValue1: "demo_app"

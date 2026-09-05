@@ -44,7 +44,7 @@ data:
               "showLineNumbers": false,
               "showMiniMap": false
             },
-            "content": "<a href=\"http://prometheus-stack-grafana.monitoring.svc.cluster.local/d/ad9bsp6/new-dashboard?orgId=1&from=now-15m&to=now&timezone=browser&var-Filters=&var-traceId=.%2A&refresh=5s\" class=\"btn btn-secondary\">Reset Dashboard</a>\n",
+            "content": "<a href=\"/d/ad9bsp6/new-dashboard?orgId=1&from=now-15m&to=now&timezone=browser&var-Filters=&var-traceId=.%2A&refresh=5s\" class=\"btn btn-secondary\">Reset Dashboard</a>\n",
             "mode": "html"
           },
           "pluginVersion": "12.4.0",
