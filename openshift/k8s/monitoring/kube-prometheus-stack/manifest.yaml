@@ -1861,6 +1861,26 @@ spec:
         runAsNonRoot: true
         runAsUser: 472
       enableServiceLinks: true
+      initContainers:
+        - name: install-splunk-plugin
+          image: "curlimages/curl:latest"
+          securityContext:
+            runAsUser: 472
+            runAsGroup: 472
+          command:
+            - "sh"
+            - "-c"
+            - |
+              set -e
+              mkdir -p /var/lib/grafana/plugins
+              curl -sL "https://github.com/essinghigh-org/grafana-splunk-datasource/releases/download/6e2cfb4/essinghigh-splunk-datasource-6e2cfb4.tar.gz" | tar -xz -C /var/lib/grafana/plugins
+              if [ ! -f /var/lib/grafana/plugins/essinghigh-splunk-datasource/essinghigh-splunk-datasource_linux_arm64 ]; then
+                cp /var/lib/grafana/plugins/essinghigh-splunk-datasource/essinghigh-splunk-datasource_linux_amd64 /var/lib/grafana/plugins/essinghigh-splunk-datasource/essinghigh-splunk-datasource_linux_arm64
+              fi
+              chmod +x /var/lib/grafana/plugins/essinghigh-splunk-datasource/essinghigh-splunk-datasource_linux_*
+          volumeMounts:
+            - name: storage
+              mountPath: /var/lib/grafana
       containers:
         - name: grafana-sc-dashboard
           image: "quay.io/kiwigrid/k8s-sidecar:2.5.0"
@@ -2004,6 +2024,8 @@ spec:
               value: /etc/grafana/provisioning
             - name: GF_UNIFIED_STORAGE_INDEX_PATH
               value: /var/lib/grafana-search/bleve
+            - name: GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS
+              value: "essinghigh-splunk-datasource"
           livenessProbe:
             failureThreshold: 10
             httpGet:

@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-splunk
+  namespace: monitoring
+  labels:
+    grafana_datasource: "1"
+    app.kubernetes.io/part-of: kube-prometheus-stack
+data:
+  splunk-datasource.yaml: |-
+    apiVersion: 1
+    datasources:
+      - name: Splunk
+        type: essinghigh-splunk-datasource
+        uid: splunk-datasource
+        access: proxy
+        url: https://splunk.splunk.svc.cluster.local:8089
+        basicAuth: true
+        basicAuthUser: admin
+        jsonData:
+          tlsSkipVerify: true
+        secureJsonData:
+          basicAuthPassword: Admin@123456
+          basicAuthToken: "Basic YWRtaW46QWRtaW5AMTIzNDU2"
