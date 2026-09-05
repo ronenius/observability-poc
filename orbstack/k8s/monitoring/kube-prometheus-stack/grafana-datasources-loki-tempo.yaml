@@ -9,37 +9,16 @@ metadata:
 data:
   loki-tempo-datasources.yaml: |-
     apiVersion: 1
-
-    deleteDatasources:
-      - name: Loki
-        orgId: 1
-      - name: Tempo
-        orgId: 1
-
     datasources:
-      # Unified Multi-Tenant Loki DataSource
-      - name: loki
+      - name: Loki
         type: loki
         uid: afs6nbwsm6n0gf
         access: proxy
         url: http://loki-gateway.monitoring.svc.cluster.local
         jsonData:
           maxLines: 1500
-          derivedFields:
-            - matcherRegex: 'trace_id=([a-fA-F0-9]+)'
-              matcherType: regex
-              name: backend_trace_id
-              url: '$${__value.raw}'
-              datasourceUid: aftjorvtpr20wc
-            - matcherRegex: 'span_id=([a-fA-F0-9]+)'
-              matcherType: regex
-              name: backend_span_id
-            - matcherRegex: '^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}(?:,\d{3})?\s(?:\[[^\]]+\]\s)?([A-Z]+)'
-              matcherType: regex
-              name: backend_severity
 
-      # Unified Multi-Tenant Tempo DataSource (X-Scope-OrgID: demo_app)
-      - name: tempo-demo-app
+      - name: Tempo
         type: tempo
         uid: aftjorvtpr20wc
         access: proxy
