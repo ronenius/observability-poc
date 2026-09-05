@@ -2,152 +2,2131 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Observability POC — Frontend</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Observability POC • Telemetry & Service Mesh Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
-    :root{
-      --bg:#0f1724; --card:#0b1220; --muted:#94a3b8; --accent:#60a5fa; --glass:rgba(255,255,255,0.04);
+    :root {
+      --bg-base: #060911;
+      --bg-surface: #0c1222;
+      --bg-card: rgba(14, 23, 42, 0.78);
+      --bg-card-hover: rgba(20, 32, 58, 0.85);
+      --bg-element: rgba(255, 255, 255, 0.04);
+      --bg-element-hover: rgba(255, 255, 255, 0.08);
+      --border-subtle: rgba(255, 255, 255, 0.07);
+      --border-highlight: rgba(56, 189, 248, 0.3);
+      --border-glow: rgba(56, 189, 248, 0.15);
+      
+      --cyan-400: #38bdf8;
+      --cyan-500: #0ea5e9;
+      --cyan-glow: rgba(56, 189, 248, 0.28);
+      --purple-400: #a78bfa;
+      --purple-500: #8b5cf6;
+      --emerald-400: #34d399;
+      --emerald-500: #10b981;
+      --emerald-glow: rgba(52, 211, 153, 0.25);
+      --amber-400: #fbbf24;
+      --amber-500: #f59e0b;
+      --amber-glow: rgba(251, 191, 36, 0.25);
+      --rose-400: #fb7185;
+      --rose-500: #f43f5e;
+      --rose-glow: rgba(244, 63, 94, 0.25);
+
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-tertiary: #64748b;
+      --text-mono: #38bdf8;
+
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 20px;
+      --shadow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.6), 0 0 1px 1px rgba(255, 255, 255, 0.05);
+      --shadow-glow: 0 0 35px -5px var(--cyan-glow);
     }
-    html,body{height:100%;margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background: linear-gradient(180deg,#071021 0%, #071a2b 60%); color:#e6eef8}
-    .app{max-width:980px;margin:36px auto;padding:24px}
-    header{display:flex;align-items:center;gap:16px;margin-bottom:20px}
-    .logo{width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#7dd3fc);display:flex;align-items:center;justify-content:center;font-weight:700;color:#04263b}
-    h1{font-size:20px;margin:0}
-    p.lead{margin:4px 0 0;color:var(--muted)}
 
-    .grid{display:grid;grid-template-columns:1fr 320px;gap:20px}
-    .card{background:var(--card);border-radius:12px;padding:18px;box-shadow:0 4px 18px rgba(2,6,23,0.6);}
-    .controls{display:flex;gap:10px;align-items:center}
-    button.btn{background:linear-gradient(180deg,var(--accent),#3b82f6);border:0;color:#04263b;padding:10px 14px;border-radius:10px;font-weight:600;cursor:pointer}
-    button.ghost{background:transparent;border:1px solid var(--glass);color:var(--accent);padding:8px 10px;border-radius:8px}
-    .muted{color:var(--muted);font-size:13px}
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-    #output{white-space:pre-wrap;overflow:auto;max-height:420px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+    body {
+      min-height: 100vh;
+      font-family: var(--font-sans);
+      background-color: var(--bg-base);
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 20%, rgba(139, 92, 246, 0.07) 0%, transparent 45%),
+        radial-gradient(circle at 50% 90%, rgba(16, 185, 129, 0.05) 0%, transparent 50%),
+        linear-gradient(180deg, #060911 0%, #090f1e 100%);
+      background-attachment: fixed;
+      color: var(--text-primary);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      padding: 24px 20px 48px;
+    }
 
-    .panel-right{display:flex;flex-direction:column;gap:12px}
-    .stat{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:8px;background:rgba(255,255,255,0.02)}
+    .app-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
 
-    .spinner{width:18px;height:18px;border-radius:50%;border:3px solid rgba(255,255,255,0.12);border-top-color:var(--accent);animation:spin 1s linear infinite;display:inline-block}
-    @keyframes spin{to{transform:rotate(360deg)}}
+    /* Top Navigation Header */
+    header.app-header {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: var(--shadow-card);
+    }
 
-    .toolbar{display:flex;gap:8px;margin-top:12px}
-    .small{font-size:13px;padding:6px 8px}
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
 
-    footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+    .brand-icon-wrapper {
+      position: relative;
+      width: 46px;
+      height: 46px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, #0284c7 0%, #6366f1 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 15px rgba(2, 132, 199, 0.35);
+    }
 
-    @media (max-width:880px){.grid{grid-template-columns:1fr;}.panel-right{order:2}}
+    .brand-icon-wrapper svg {
+      width: 26px;
+      height: 26px;
+      color: #ffffff;
+    }
+
+    .brand-titles h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge-chip {
+      font-size: 0.7rem;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      color: var(--cyan-400);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .brand-titles p {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .cluster-status-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--emerald-400);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--emerald-400);
+      box-shadow: 0 0 8px var(--emerald-400);
+      animation: pulseGreen 2.2s infinite ease-in-out;
+    }
+
+    @keyframes pulseGreen {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .header-link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      background: var(--bg-element);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    .header-link-btn:hover {
+      background: var(--bg-element-hover);
+      color: var(--text-primary);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Telemetry HUD (KPI Cards) */
+    .telemetry-hud {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .hud-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .hud-card:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+      transform: translateY(-2px);
+    }
+
+    .hud-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-tertiary);
+    }
+
+    .hud-header svg {
+      width: 16px;
+      height: 16px;
+      opacity: 0.7;
+    }
+
+    .hud-value-row {
+      margin-top: 10px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .hud-value {
+      font-size: 1.85rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      letter-spacing: -0.03em;
+      color: #ffffff;
+    }
+
+    .hud-unit {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .hud-subtext {
+      margin-top: 6px;
+      font-size: 0.74rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Progress bar in KPI */
+    .mini-progress-track {
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+
+    .mini-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--cyan-400), var(--emerald-400));
+      width: 100%;
+      border-radius: 999px;
+      transition: width 0.4s ease, background 0.4s ease;
+    }
+
+    /* Architecture Topology Section */
+    .section-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 22px 26px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .section-title-wrap h2 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title-wrap p {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .topology-pipeline {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0 16px;
+      position: relative;
+    }
+
+    /* Microservice Node */
+    .service-node {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      position: relative;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
+    }
+
+    .service-node::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--border-subtle);
+      transition: background 0.3s ease;
+    }
+
+    .service-node.node-frontend::before { background: linear-gradient(90deg, #38bdf8, #818cf8); }
+    .service-node.node-backend1::before { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+    .service-node.node-backend2::before { background: linear-gradient(90deg, #f43f5e, #fb7185); }
+
+    .service-node:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.5);
+    }
+
+    .service-node.state-active {
+      border-color: var(--cyan-400);
+      box-shadow: 0 0 25px -4px var(--cyan-glow);
+    }
+
+    .service-node.state-success {
+      border-color: rgba(52, 211, 153, 0.6);
+      box-shadow: 0 0 25px -4px var(--emerald-glow);
+    }
+
+    .service-node.state-failed {
+      border-color: rgba(244, 63, 94, 0.8);
+      box-shadow: 0 0 30px -2px var(--rose-glow);
+    }
+
+    .node-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .node-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tech-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+
+    .tech-icon.node-icon { background: rgba(56, 189, 248, 0.15); color: var(--cyan-400); border: 1px solid rgba(56, 189, 248, 0.3); }
+    .tech-icon.py-icon { background: rgba(251, 191, 36, 0.15); color: var(--amber-400); border: 1px solid rgba(251, 191, 36, 0.3); }
+    .tech-icon.java-icon { background: rgba(244, 63, 94, 0.15); color: var(--rose-400); border: 1px solid rgba(244, 63, 94, 0.3); }
+
+    .node-title-group h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .node-subtitle {
+      font-size: 0.73rem;
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+    }
+
+    .node-status-tag {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      transition: all 0.2s;
+    }
+
+    .service-node.state-active .node-status-tag {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--cyan-400);
+      color: var(--cyan-400);
+    }
+
+    .service-node.state-success .node-status-tag {
+      background: rgba(52, 211, 153, 0.15);
+      border-color: var(--emerald-400);
+      color: var(--emerald-400);
+    }
+
+    .service-node.state-failed .node-status-tag {
+      background: rgba(244, 63, 94, 0.18);
+      border-color: var(--rose-400);
+      color: var(--rose-400);
+    }
+
+    .node-specs {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 12px;
+      margin-top: 6px;
+    }
+
+    .spec-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .spec-key {
+      color: var(--text-tertiary);
+    }
+
+    .spec-val {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-primary);
+    }
+
+    .chaos-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 6px;
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      border-radius: 4px;
+      color: var(--amber-400);
+      font-size: 0.68rem;
+      font-weight: 500;
+    }
+
+    /* Topology Connector */
+    .topology-connector {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 110px;
+      padding: 0 4px;
+      position: relative;
+    }
+
+    .connector-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      color: var(--text-tertiary);
+      margin-bottom: 6px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .connector-track {
+      width: 100%;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .connector-packet {
+      position: absolute;
+      top: 0;
+      left: -20px;
+      width: 25px;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, var(--cyan-400), #ffffff, transparent);
+      opacity: 0;
+      border-radius: 999px;
+    }
+
+    .topology-connector.transmitting .connector-packet {
+      opacity: 1;
+      animation: packetTravel 0.85s infinite linear;
+    }
+
+    @keyframes packetTravel {
+      0% { left: -30%; opacity: 0; }
+      25% { opacity: 1; }
+      75% { opacity: 1; }
+      100% { left: 100%; opacity: 0; }
+    }
+
+    .connector-sublabel {
+      font-size: 0.62rem;
+      color: var(--text-tertiary);
+      margin-top: 6px;
+      text-align: center;
+    }
+
+    /* Control Deck */
+    .controls-deck {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border-subtle);
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .action-buttons-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 10px 18px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      border: 1px solid transparent;
+      outline: none;
+      user-select: none;
+    }
+
+    .btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+      color: #ffffff;
+      box-shadow: 0 4px 18px rgba(2, 132, 199, 0.35);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%);
+      box-shadow: 0 6px 24px rgba(2, 132, 199, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .btn-secondary {
+      background: var(--bg-element);
+      border-color: var(--border-subtle);
+      color: var(--text-primary);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--bg-element-hover);
+      border-color: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    .stream-control-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-element);
+      padding: 4px 6px 4px 12px;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+    }
+
+    .stream-label {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stream-beacon {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-tertiary);
+    }
+
+    .stream-beacon.active {
+      background: var(--amber-400);
+      box-shadow: 0 0 8px var(--amber-400);
+      animation: pulseGreen 1s infinite;
+    }
+
+    select.stream-select {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      padding: 6px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .status-summary-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+    }
+
+    .status-badge-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+    }
+
+    .status-badge-live.ok {
+      background: rgba(52, 211, 153, 0.12);
+      border-color: rgba(52, 211, 153, 0.3);
+      color: var(--emerald-400);
+    }
+
+    .status-badge-live.err {
+      background: rgba(244, 63, 94, 0.15);
+      border-color: rgba(244, 63, 94, 0.35);
+      color: var(--rose-400);
+    }
+
+    /* Telemetry Inspector Tabs */
+    .inspector-container {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+    }
+
+    .tab-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .tab-nav {
+      display: flex;
+      gap: 4px;
+    }
+
+    .tab-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 16px;
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-secondary);
+    }
+
+    .tab-btn.active {
+      color: var(--cyan-400);
+      border-bottom-color: var(--cyan-400);
+    }
+
+    .tab-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tool-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      background: var(--bg-element);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      font-size: 0.74rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .tool-btn:hover {
+      background: var(--bg-element-hover);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .tab-content-body {
+      padding: 22px;
+      min-height: 280px;
+    }
+
+    .tab-pane {
+      display: none;
+    }
+
+    .tab-pane.active {
+      display: block;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Tab 1: Service Journey Breakdown */
+    .journey-chain {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .journey-step-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .step-number {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--bg-element-hover);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.78rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--cyan-400);
+      flex-shrink: 0;
+    }
+
+    .step-info {
+      flex: 1;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .step-name {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .step-tag {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--text-tertiary);
+    }
+
+    .step-content {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    /* Tab 2: Syntax Highlighted JSON */
+    .json-code-box {
+      background: #070b14;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      color: #e2e8f0;
+      overflow-x: auto;
+      max-height: 440px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      line-height: 1.6;
+    }
+
+    .json-key { color: #38bdf8; font-weight: 500; }
+    .json-string { color: #34d399; }
+    .json-number { color: #fbbf24; }
+    .json-boolean { color: #c084fc; font-weight: 600; }
+    .json-null { color: #f43f5e; font-weight: 600; }
+
+    /* Tab 3: Prometheus Metrics Live */
+    .metrics-view {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .metrics-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .metric-chip {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+    }
+
+    .metric-chip-label {
+      font-size: 0.72rem;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .metric-chip-val {
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--cyan-400);
+      margin-top: 4px;
+    }
+
+    .metrics-raw-container {
+      background: #070b14;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: #cbd5e1;
+      max-height: 320px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    /* Tab 4: History Table */
+    .history-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+    }
+
+    table.history-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      text-align: left;
+    }
+
+    table.history-table th {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 10px 14px;
+      color: var(--text-tertiary);
+      font-weight: 600;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    table.history-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--text-secondary);
+    }
+
+    table.history-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .status-pill-small {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .status-pill-small.success {
+      background: rgba(52, 211, 153, 0.12);
+      color: var(--emerald-400);
+      border: 1px solid rgba(52, 211, 153, 0.25);
+    }
+
+    .status-pill-small.danger {
+      background: rgba(244, 63, 94, 0.15);
+      color: var(--rose-400);
+      border: 1px solid rgba(244, 63, 94, 0.25);
+    }
+
+    .btn-inspect-mini {
+      padding: 3px 8px;
+      font-size: 0.72rem;
+      background: var(--bg-element);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      color: var(--cyan-400);
+      cursor: pointer;
+    }
+
+    .btn-inspect-mini:hover {
+      background: var(--bg-element-hover);
+      color: #ffffff;
+    }
+
+    /* Observability Architecture Footer */
+    footer.app-footer {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 8px;
+    }
+
+    .footer-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+    }
+
+    .footer-card h4 {
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .footer-card h4 svg {
+      width: 14px;
+      height: 14px;
+      color: var(--cyan-400);
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 10px 18px;
+      background: #0f172a;
+      border: 1px solid var(--cyan-500);
+      border-radius: var(--radius-md);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6), 0 0 15px var(--cyan-glow);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 9999;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* Spinner */
+    .spinner-sm {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Responsive */
+    @media (max-width: 980px) {
+      .telemetry-hud { grid-template-columns: repeat(2, 1fr); }
+      .topology-pipeline {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      .topology-connector {
+        width: 100%;
+        height: 40px;
+        transform: rotate(90deg);
+        margin: 10px 0;
+      }
+      footer.app-footer { grid-template-columns: 1fr; }
+      .metrics-summary-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
-  <div class="app">
-    <header>
-      <div class="logo">POC</div>
-      <div>
-        <h1>Observability POC — Frontend</h1>
-        <p class="lead">Trigger the microservice chain and inspect the result, with metrics and logs accessible separately.</p>
+  <div class="app-container">
+
+    <!-- Header Navigation -->
+    <header class="app-header" id="mainHeader">
+      <div class="header-brand">
+        <div class="brand-icon-wrapper">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+        </div>
+        <div class="brand-titles">
+          <h1>
+            Observability POC
+            <span class="badge-chip">OTel Mesh Console</span>
+          </h1>
+          <p>Microservices telemetry, distributed trace propagation, and chaos fault verification</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="cluster-status-pill">
+          <span class="status-dot"></span>
+          <span>Kubernetes Ingress Active</span>
+        </div>
+        <a href="/metrics" target="_blank" class="header-link-btn" title="View Prometheus Raw Endpoint">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+          /metrics
+        </a>
       </div>
     </header>
 
-    <div class="grid">
-      <section class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div>
-            <strong>Microservices Chain Test</strong>
-            <div class="muted">Run an end-to-end request through the backend chain</div>
+    <!-- Telemetry HUD / KPI Cards -->
+    <section class="telemetry-hud" aria-label="Telemetry Summary">
+      <!-- Card 1: Total Invocations -->
+      <div class="hud-card">
+        <div class="hud-header">
+          <span>Total Requests</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+          </svg>
+        </div>
+        <div class="hud-value-row">
+          <span class="hud-value" id="kpiTotalRequests">0</span>
+          <span class="hud-unit">reqs</span>
+        </div>
+        <div class="hud-subtext" id="kpiTotalSubtext">Session initialized</div>
+      </div>
+
+      <!-- Card 2: Success Rate -->
+      <div class="hud-card">
+        <div class="hud-header">
+          <span>Success Rate</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+        </div>
+        <div class="hud-value-row">
+          <span class="hud-value" id="kpiSuccessRate">100</span>
+          <span class="hud-unit">%</span>
+        </div>
+        <div class="mini-progress-track">
+          <div class="mini-progress-fill" id="kpiSuccessFill" style="width: 100%;"></div>
+        </div>
+      </div>
+
+      <!-- Card 3: Avg Round-trip Latency -->
+      <div class="hud-card">
+        <div class="hud-header">
+          <span>Avg Latency</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </div>
+        <div class="hud-value-row">
+          <span class="hud-value" id="kpiAvgLatency">0</span>
+          <span class="hud-unit">ms</span>
+        </div>
+        <div class="hud-subtext" id="kpiLatencyRange">Min: — • Max: —</div>
+      </div>
+
+      <!-- Card 4: Chaos Fault Injections -->
+      <div class="hud-card">
+        <div class="hud-header">
+          <span>Chaos Faults</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
+        <div class="hud-value-row">
+          <span class="hud-value" id="kpiFaultsTotal" style="color: var(--rose-400);">0</span>
+          <span class="hud-unit">drops</span>
+        </div>
+        <div class="hud-subtext" id="kpiFaultsBreakdown">B1: 0 • B2: 0</div>
+      </div>
+    </section>
+
+    <!-- Microservice Topology & Pipeline -->
+    <section class="section-card" aria-label="Microservices Chain Topology">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <h2>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+              <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+              <line x1="6" y1="6" x2="6.01" y2="6"></line>
+              <line x1="6" y1="18" x2="6.01" y2="18"></line>
+            </svg>
+            Microservices Chain Topology
+          </h2>
+          <p>Real-time telemetry and state visualization through the 3-tier microservice mesh</p>
+        </div>
+
+        <div class="status-summary-bar">
+          <span class="status-badge-live" id="chainLiveBadge">
+            <span class="status-dot" style="width: 6px; height: 6px;"></span>
+            Standby
+          </span>
+        </div>
+      </div>
+
+      <!-- Pipeline Diagram -->
+      <div class="topology-pipeline" id="topologyPipeline">
+        <!-- Node 1: Frontend -->
+        <div class="service-node node-frontend" id="nodeFrontend">
+          <div class="node-top">
+            <div class="node-badge">
+              <div class="tech-icon node-icon">JS</div>
+              <div class="node-title-group">
+                <h3>Frontend</h3>
+                <span class="node-subtitle">Node.js 18 • Express</span>
+              </div>
+            </div>
+            <span class="node-status-tag" id="statusNodeFrontend">Ready</span>
           </div>
-          <div class="controls">
-            <button id="runBtn" class="btn">Send Request</button>
-            <button id="clearBtn" class="ghost small">Clear</button>
+
+          <div class="node-specs">
+            <div class="spec-item">
+              <span class="spec-key">Cluster Port:</span>
+              <span class="spec-val">3000 / LoadBalancer</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-key">Role:</span>
+              <span class="spec-val">Gateway Ingress</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-key">OTel:</span>
+              <span class="spec-val">W3C Trace Injector</span>
+            </div>
           </div>
         </div>
 
-        <div id="status" class="muted">Ready</div>
-
-        <div style="margin-top:14px">
-          <div id="output">No output yet. Click "Send Request" to begin.</div>
-        </div>
-
-        <div class="toolbar">
-          <button id="copyBtn" class="ghost small">Copy JSON</button>
-          <button id="prettyBtn" class="ghost small">Toggle Pretty</button>
-        </div>
-
-      </section>
-
-      <aside class="panel-right">
-        <div class="card stat">
-          <div>
-            <div class="muted">Last run</div>
-            <div id="lastRun">—</div>
+        <!-- Connector 1 -->
+        <div class="topology-connector" id="connector1">
+          <span class="connector-label">HTTP REST</span>
+          <div class="connector-track">
+            <div class="connector-packet"></div>
           </div>
-          <div id="lastStatus" class="muted">—</div>
+          <span class="connector-sublabel">traceparent injected</span>
         </div>
 
-        <div class="card">
-          <div class="muted">Quick Links</div>
-          <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
-            <a class="ghost" href="/metrics" style="text-decoration:none;padding:8px;border-radius:8px;background:transparent;color:var(--accent);display:inline-block">Prometheus Metrics</a>
-            <a class="ghost" href="#" onclick="openLogs(event)" style="text-decoration:none;padding:8px;border-radius:8px;background:transparent;color:var(--accent);display:inline-block">View Logs (console)</a>
+        <!-- Node 2: Backend 1 -->
+        <div class="service-node node-backend1" id="nodeBackend1">
+          <div class="node-top">
+            <div class="node-badge">
+              <div class="tech-icon py-icon">PY</div>
+              <div class="node-title-group">
+                <h3>Backend 1</h3>
+                <span class="node-subtitle">Python 3.11 • Flask</span>
+              </div>
+            </div>
+            <span class="node-status-tag" id="statusNodeBackend1">Ready</span>
+          </div>
+
+          <div class="node-specs">
+            <div class="spec-item">
+              <span class="spec-key">Cluster Port:</span>
+              <span class="spec-val">5000 / ClusterIP</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-key">Chaos Mode:</span>
+              <span class="chaos-pill">10% Drop Fault</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-key">Endpoint:</span>
+              <span class="spec-val">/api/process</span>
+            </div>
           </div>
         </div>
 
-        <div class="card muted">
-          This is a demo GUI meant to improve developer ergonomics. For production use, wire authentication and richer telemetry UIs.
+        <!-- Connector 2 -->
+        <div class="topology-connector" id="connector2">
+          <span class="connector-label">HTTP REST</span>
+          <div class="connector-track">
+            <div class="connector-packet"></div>
+          </div>
+          <span class="connector-sublabel">propagated context</span>
         </div>
-      </aside>
-    </div>
 
-    <footer>Frontend service listening on port 3000 • Built for observability demo</footer>
+        <!-- Node 3: Backend 2 -->
+        <div class="service-node node-backend2" id="nodeBackend2">
+          <div class="node-top">
+            <div class="node-badge">
+              <div class="tech-icon java-icon">JV</div>
+              <div class="node-title-group">
+                <h3>Backend 2</h3>
+                <span class="node-subtitle">Java 17 • Spring Boot 3</span>
+              </div>
+            </div>
+            <span class="node-status-tag" id="statusNodeBackend2">Ready</span>
+          </div>
+
+          <div class="node-specs">
+            <div class="spec-item">
+              <span class="spec-key">Cluster Port:</span>
+              <span class="spec-val">8080 / ClusterIP</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-key">Chaos Mode:</span>
+              <span class="chaos-pill">10% Random 500</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-key">Endpoint:</span>
+              <span class="spec-val">/api/data</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls Deck -->
+      <div class="controls-deck">
+        <div class="action-buttons-group">
+          <button id="btnDispatch" class="btn btn-primary" title="Execute single request (Shortcut: Enter)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <span>Dispatch Request</span>
+          </button>
+
+          <button id="btnBurst" class="btn btn-secondary" title="Dispatch 5 requests sequentially">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+            <span>Burst (5x)</span>
+          </button>
+
+          <div class="stream-control-wrap">
+            <span class="stream-label">
+              <span class="stream-beacon" id="streamBeacon"></span>
+              Auto-Traffic:
+            </span>
+            <select class="stream-select" id="streamIntervalSelect" title="Select stream frequency">
+              <option value="0">Off</option>
+              <option value="1000">1.0s</option>
+              <option value="2000">2.0s</option>
+              <option value="5000">5.0s</option>
+            </select>
+          </div>
+
+          <button id="btnClearStats" class="btn btn-secondary" style="padding: 10px 14px;" title="Reset session stats">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="1 4 1 10 7 10"></polyline>
+              <polyline points="23 20 23 14 17 14"></polyline>
+              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+            </svg>
+            <span>Clear</span>
+          </button>
+        </div>
+
+        <div class="status-summary-bar">
+          <span id="execMessage">Click <strong>Dispatch Request</strong> to start end-to-end trace.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Telemetry & Payload Inspector -->
+    <section class="inspector-container" aria-label="Telemetry Inspector">
+      <!-- Tabs Header -->
+      <div class="tab-header-row">
+        <nav class="tab-nav" role="tablist">
+          <button class="tab-btn active" id="tabBtnJourney" onclick="switchTab('journey')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="m9 12 2 2 4-4"></path>
+            </svg>
+            Service Journey
+          </button>
+
+          <button class="tab-btn" id="tabBtnJson" onclick="switchTab('json')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="16 18 22 12 16 6"></polyline>
+              <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+            JSON Response
+          </button>
+
+          <button class="tab-btn" id="tabBtnMetrics" onclick="switchTab('metrics')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+            Prometheus Live
+          </button>
+
+          <button class="tab-btn" id="tabBtnHistory" onclick="switchTab('history')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 14 14"></polyline>
+            </svg>
+            Request History (<span id="historyBadgeCount">0</span>)
+          </button>
+        </nav>
+
+        <div class="tab-toolbar">
+          <button class="tool-btn" id="btnCopyJson" title="Copy raw JSON payload to clipboard">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            Copy Payload
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="tab-content-body">
+        
+        <!-- Pane 1: Journey -->
+        <div class="tab-pane active" id="paneJourney">
+          <div class="journey-chain" id="journeyContent">
+            <div style="color: var(--text-tertiary); font-size: 0.85rem; padding: 24px 0; text-align: center;">
+              No request triggered yet. Click <strong>Dispatch Request</strong> above to observe the execution journey.
+            </div>
+          </div>
+        </div>
+
+        <!-- Pane 2: JSON Response -->
+        <div class="tab-pane" id="paneJson">
+          <div class="json-code-box" id="jsonOutputArea">// Payload will appear here when a request is dispatched...</div>
+        </div>
+
+        <!-- Pane 3: Prometheus Live -->
+        <div class="tab-pane" id="paneMetrics">
+          <div class="metrics-view">
+            <div class="metrics-summary-grid">
+              <div class="metric-chip">
+                <div class="metric-chip-label">app_requests_total (Cluster)</div>
+                <div class="metric-chip-val" id="promScrapeCounter">—</div>
+              </div>
+              <div class="metric-chip">
+                <div class="metric-chip-label">Metrics Endpoint Status</div>
+                <div class="metric-chip-val" id="promScrapeStatus" style="font-size: 1rem; color: var(--emerald-400);">Available (200 OK)</div>
+              </div>
+              <div class="metric-chip">
+                <div class="metric-chip-label">Scrape Timestamp</div>
+                <div class="metric-chip-val" id="promScrapeTime" style="font-size: 0.9rem; color: var(--text-secondary);">—</div>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">
+                Raw Prometheus Scrape Output (/metrics)
+              </span>
+              <button class="tool-btn" id="btnRefreshProm" onclick="refreshPrometheusMetrics()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                </svg>
+                Refresh Scrape
+              </button>
+            </div>
+
+            <div class="metrics-raw-container" id="promRawOutput">Click "Refresh Scrape" or switch to this tab to load Prometheus metrics.</div>
+          </div>
+        </div>
+
+        <!-- Pane 4: History Table -->
+        <div class="tab-pane" id="paneHistory">
+          <div class="history-table-wrap">
+            <table class="history-table" id="historyTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Timestamp</th>
+                  <th>Status</th>
+                  <th>Latency</th>
+                  <th>Trace Outcome / Origin</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="historyTableBody">
+                <tr>
+                  <td colspan="6" style="text-align: center; color: var(--text-tertiary); padding: 24px;">
+                    No requests dispatched yet in this session.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Observability Architecture Footer -->
+    <footer class="app-footer">
+      <div class="footer-card">
+        <h4>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+          OpenTelemetry Auto-Instrumentation
+        </h4>
+        <p>
+          Node.js, Python, and Java workloads automatically inject and propagate standard W3C <code>traceparent</code> headers across HTTP requests for end-to-end distributed tracing.
+        </p>
+      </div>
+
+      <div class="footer-card">
+        <h4>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+          Grafana Alloy & Loki
+        </h4>
+        <p>
+          Grafana Alloy dynamically scrapes pod logs and Kubernetes container metadata, routing structured JSON logs directly into Loki with trace context correlation.
+        </p>
+      </div>
+
+      <div class="footer-card">
+        <h4>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polygon points="12 8 8 12 12 16 16 12 12 8"></polygon>
+          </svg>
+          Chaos Verification (10% Drop)
+        </h4>
+        <p>
+          Backend 1 and Backend 2 inject simulated 10% failure rates to test cluster resiliency, error budgeting, and trace alerting in Grafana & Prometheus.
+        </p>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toastBox">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+    <span id="toastText">Action completed</span>
   </div>
 
   <script>
-    let lastJson = null;
-    let pretty = true;
+    // State Store
+    const state = {
+      totalRequests: 0,
+      successfulRequests: 0,
+      faultCount: 0,
+      b1Faults: 0,
+      b2Faults: 0,
+      latencies: [],
+      history: [],
+      currentJson: null,
+      streamTimer: null,
+      isExecuting: false
+    };
 
-    const runBtn = document.getElementById('runBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const copyBtn = document.getElementById('copyBtn');
-    const prettyBtn = document.getElementById('prettyBtn');
-    const statusEl = document.getElementById('status');
-    const outputEl = document.getElementById('output');
-    const lastRunEl = document.getElementById('lastRun');
-    const lastStatusEl = document.getElementById('lastStatus');
+    // DOM Elements
+    const btnDispatch = document.getElementById('btnDispatch');
+    const btnBurst = document.getElementById('btnBurst');
+    const btnClearStats = document.getElementById('btnClearStats');
+    const btnCopyJson = document.getElementById('btnCopyJson');
+    const streamSelect = document.getElementById('streamIntervalSelect');
+    const streamBeacon = document.getElementById('streamBeacon');
+    const execMessage = document.getElementById('execMessage');
+    const chainLiveBadge = document.getElementById('chainLiveBadge');
 
-    runBtn.addEventListener('click', trigger);
-    clearBtn.addEventListener('click', () => { outputEl.textContent = 'No output yet. Click "Send Request" to begin.'; lastJson = null; lastRunEl.textContent = '—'; lastStatusEl.textContent = '—'; statusEl.textContent = 'Ready'; });
-    copyBtn.addEventListener('click', () => { if (!lastJson) return; navigator.clipboard.writeText(JSON.stringify(lastJson, null, 2)).then(()=>{statusEl.textContent='Copied to clipboard'; setTimeout(()=>statusEl.textContent='Ready',1200)}); });
-    prettyBtn.addEventListener('click', () => { pretty = !pretty; renderOutput(); prettyBtn.textContent = pretty ? 'Toggle Pretty' : 'Toggle Raw'; });
+    // KPI Elements
+    const kpiTotalRequests = document.getElementById('kpiTotalRequests');
+    const kpiTotalSubtext = document.getElementById('kpiTotalSubtext');
+    const kpiSuccessRate = document.getElementById('kpiSuccessRate');
+    const kpiSuccessFill = document.getElementById('kpiSuccessFill');
+    const kpiAvgLatency = document.getElementById('kpiAvgLatency');
+    const kpiLatencyRange = document.getElementById('kpiLatencyRange');
+    const kpiFaultsTotal = document.getElementById('kpiFaultsTotal');
+    const kpiFaultsBreakdown = document.getElementById('kpiFaultsBreakdown');
 
-    function openLogs(e){ e.preventDefault(); alert('Logs are written to the server console. Check the backend and frontend logs in your environment.'); }
+    // Topology Elements
+    const nodeFrontend = document.getElementById('nodeFrontend');
+    const nodeBackend1 = document.getElementById('nodeBackend1');
+    const nodeBackend2 = document.getElementById('nodeBackend2');
+    const connector1 = document.getElementById('connector1');
+    const connector2 = document.getElementById('connector2');
+    const statusNodeFrontend = document.getElementById('statusNodeFrontend');
+    const statusNodeBackend1 = document.getElementById('statusNodeBackend1');
+    const statusNodeBackend2 = document.getElementById('statusNodeBackend2');
 
-    async function trigger(){
-      statusEl.innerHTML = '<span class="spinner" aria-hidden="true"></span> Running...';
-      runBtn.disabled = true;
-      try{
-        const res = await fetch('/api/trigger');
-        const data = await res.json();
-        lastJson = data;
-        lastRunEl.textContent = new Date().toLocaleString();
-        lastStatusEl.textContent = res.ok ? 'OK' : ('ERR '+res.status);
-        statusEl.textContent = res.ok ? 'Success' : ('Failed: '+res.status);
-        renderOutput();
-      }catch(err){
-        lastJson = { error: String(err) };
-        outputEl.textContent = 'Request failed: '+err;
-        statusEl.textContent = 'Request failed';
-      } finally{
-        runBtn.disabled = false;
+    // Inspector Elements
+    const journeyContent = document.getElementById('journeyContent');
+    const jsonOutputArea = document.getElementById('jsonOutputArea');
+    const historyTableBody = document.getElementById('historyTableBody');
+    const historyBadgeCount = document.getElementById('historyBadgeCount');
+    const toastBox = document.getElementById('toastBox');
+
+    // Event Listeners
+    btnDispatch.addEventListener('click', () => triggerSingleRequest());
+    btnBurst.addEventListener('click', () => triggerBurst(5));
+    btnClearStats.addEventListener('click', resetStats);
+    btnCopyJson.addEventListener('click', copyJsonToClipboard);
+    streamSelect.addEventListener('change', handleStreamChange);
+
+    // Keyboard Shortcuts (Enter to dispatch)
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !state.isExecuting && document.activeElement.tagName !== 'SELECT') {
+        triggerSingleRequest();
+      }
+    });
+
+    // Tab Switching
+    function switchTab(tabId) {
+      const tabs = ['journey', 'json', 'metrics', 'history'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tabBtn${capitalize(t)}`);
+        const pane = document.getElementById(`pane${capitalize(t)}`);
+        if (btn) btn.classList.toggle('active', t === tabId);
+        if (pane) pane.classList.toggle('active', t === tabId);
+      });
+
+      if (tabId === 'metrics') {
+        refreshPrometheusMetrics();
       }
     }
 
-    function renderOutput(){
-      if (!lastJson){ outputEl.textContent = 'No output yet. Click "Send Request" to begin.'; return; }
-      if (pretty){
-        outputEl.textContent = JSON.stringify(lastJson, null, 2);
+    function capitalize(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    // Execute Request
+    async function triggerSingleRequest() {
+      if (state.isExecuting) return;
+      state.isExecuting = true;
+      updateRunningUI(true);
+
+      const startTime = performance.now();
+      let responseOk = false;
+      let responseStatus = 0;
+      let responseData = null;
+      let errorOrigin = null;
+
+      try {
+        const res = await fetch('/api/trigger', { cache: 'no-store' });
+        responseStatus = res.status;
+        responseOk = res.ok;
+        responseData = await res.json();
+      } catch (err) {
+        responseOk = false;
+        responseStatus = 500;
+        responseData = { error: String(err), message: "Network connection or gateway error" };
+        errorOrigin = "Network / Gateway";
+      }
+
+      const duration = Math.round(performance.now() - startTime);
+
+      // Determine Failure Origin
+      if (!responseOk) {
+        const errorDetailStr = JSON.stringify(responseData);
+        if (errorDetailStr.includes("Simulated failure in Backend 1") || (responseData?.details?.error && responseData.details.error.includes("Backend 1"))) {
+          errorOrigin = "Backend 1 (Python Chaos Drop)";
+          state.b1Faults++;
+        } else if (errorDetailStr.includes("backend2") || errorDetailStr.includes("Backend 2")) {
+          errorOrigin = "Backend 2 (Java 500 Error)";
+          state.b2Faults++;
+        } else {
+          errorOrigin = "Frontend / Ingress Fault";
+        }
+        state.faultCount++;
       } else {
-        outputEl.textContent = JSON.stringify(lastJson);
+        state.successfulRequests++;
+      }
+
+      state.totalRequests++;
+      state.latencies.push(duration);
+      state.currentJson = responseData;
+
+      // Record in History
+      const historyItem = {
+        id: state.totalRequests,
+        time: new Date().toLocaleTimeString(),
+        ok: responseOk,
+        status: responseStatus,
+        duration: duration,
+        errorOrigin: errorOrigin,
+        payload: responseData
+      };
+      state.history.unshift(historyItem);
+      if (state.history.length > 50) state.history.pop();
+
+      // Render Everything
+      renderTopologyResult(responseOk, errorOrigin, duration);
+      updateKPIDisplay();
+      renderJourney(historyItem);
+      renderJsonOutput(responseData);
+      renderHistoryTable();
+
+      state.isExecuting = false;
+      updateRunningUI(false);
+    }
+
+    // Burst Execution (5 requests sequentially)
+    async function triggerBurst(count) {
+      if (state.isExecuting) return;
+      btnBurst.disabled = true;
+      btnDispatch.disabled = true;
+
+      for (let i = 0; i < count; i++) {
+        execMessage.innerHTML = `<span class="spinner-sm"></span> Running burst request ${i + 1} of ${count}...`;
+        await triggerSingleRequest();
+        if (i < count - 1) await new Promise(r => setTimeout(r, 400));
+      }
+
+      btnBurst.disabled = false;
+      btnDispatch.disabled = false;
+      showToast(`Completed burst of ${count} requests`);
+    }
+
+    // Traffic Generator Stream
+    function handleStreamChange() {
+      const intervalMs = parseInt(streamSelect.value, 10);
+      if (state.streamTimer) {
+        clearInterval(state.streamTimer);
+        state.streamTimer = null;
+      }
+
+      if (intervalMs > 0) {
+        streamBeacon.classList.add('active');
+        showToast(`Auto-traffic enabled (${intervalMs / 1000}s interval)`);
+        triggerSingleRequest();
+        state.streamTimer = setInterval(() => {
+          if (!state.isExecuting) {
+            triggerSingleRequest();
+          }
+        }, intervalMs);
+      } else {
+        streamBeacon.classList.remove('active');
+        showToast("Auto-traffic paused");
       }
     }
+
+    // UI Updates During In-flight Request
+    function updateRunningUI(isRunning) {
+      btnDispatch.disabled = isRunning;
+      if (isRunning) {
+        chainLiveBadge.className = 'status-badge-live ok';
+        chainLiveBadge.innerHTML = '<span class="spinner-sm"></span> Processing Mesh Request...';
+        execMessage.innerHTML = '<span class="spinner-sm"></span> Propagating OTel trace through Python & Java microservices...';
+        
+        connector1.classList.add('transmitting');
+        connector2.classList.add('transmitting');
+
+        nodeFrontend.className = 'service-node node-frontend state-active';
+        nodeBackend1.className = 'service-node node-backend1 state-active';
+        nodeBackend2.className = 'service-node node-backend2 state-active';
+
+        statusNodeFrontend.textContent = 'Transmitting';
+        statusNodeBackend1.textContent = 'Processing';
+        statusNodeBackend2.textContent = 'Processing';
+      } else {
+        connector1.classList.remove('transmitting');
+        connector2.classList.remove('transmitting');
+      }
+    }
+
+    // Render Topology Nodes based on Result
+    function renderTopologyResult(ok, errorOrigin, latency) {
+      if (ok) {
+        chainLiveBadge.className = 'status-badge-live ok';
+        chainLiveBadge.innerHTML = `<span class="status-dot"></span> 200 OK (${latency}ms)`;
+        execMessage.innerHTML = `<span style="color: var(--emerald-400); font-weight:600;">✓ Success:</span> Full chain executed and trace propagated in <strong>${latency}ms</strong>`;
+
+        nodeFrontend.className = 'service-node node-frontend state-success';
+        nodeBackend1.className = 'service-node node-backend1 state-success';
+        nodeBackend2.className = 'service-node node-backend2 state-success';
+
+        statusNodeFrontend.textContent = '200 OK';
+        statusNodeBackend1.textContent = '200 OK';
+        statusNodeBackend2.textContent = '200 OK';
+      } else {
+        chainLiveBadge.className = 'status-badge-live err';
+        chainLiveBadge.innerHTML = `<span>⚠</span> Fault: ${errorOrigin}`;
+        execMessage.innerHTML = `<span style="color: var(--rose-400); font-weight:600;">✕ Simulated Fault:</span> ${errorOrigin} (${latency}ms)`;
+
+        if (errorOrigin && errorOrigin.includes("Backend 1")) {
+          nodeFrontend.className = 'service-node node-frontend state-success';
+          nodeBackend1.className = 'service-node node-backend1 state-failed';
+          nodeBackend2.className = 'service-node node-backend2';
+
+          statusNodeFrontend.textContent = 'Caught Error';
+          statusNodeBackend1.textContent = '10% Chaos Drop';
+          statusNodeBackend2.textContent = 'Not Reached';
+        } else if (errorOrigin && errorOrigin.includes("Backend 2")) {
+          nodeFrontend.className = 'service-node node-frontend state-success';
+          nodeBackend1.className = 'service-node node-backend1 state-failed';
+          nodeBackend2.className = 'service-node node-backend2 state-failed';
+
+          statusNodeFrontend.textContent = 'Caught Error';
+          statusNodeBackend1.textContent = 'Upstream 500';
+          statusNodeBackend2.textContent = '500 Internal Error';
+        } else {
+          nodeFrontend.className = 'service-node node-frontend state-failed';
+          nodeBackend1.className = 'service-node node-backend1';
+          nodeBackend2.className = 'service-node node-backend2';
+
+          statusNodeFrontend.textContent = 'Ingress Error';
+          statusNodeBackend1.textContent = 'Standby';
+          statusNodeBackend2.textContent = 'Standby';
+        }
+      }
+    }
+
+    // Update KPI Displays
+    function updateKPIDisplay() {
+      kpiTotalRequests.textContent = state.totalRequests;
+      kpiTotalSubtext.textContent = `Last: ${state.history[0]?.time || '—'}`;
+
+      const rate = state.totalRequests > 0 
+        ? Math.round((state.successfulRequests / state.totalRequests) * 100) 
+        : 100;
+
+      kpiSuccessRate.textContent = rate;
+      kpiSuccessFill.style.width = `${rate}%`;
+
+      if (rate >= 90) {
+        kpiSuccessRate.style.color = 'var(--emerald-400)';
+        kpiSuccessFill.style.background = 'linear-gradient(90deg, #38bdf8, #34d399)';
+      } else if (rate >= 75) {
+        kpiSuccessRate.style.color = 'var(--amber-400)';
+        kpiSuccessFill.style.background = 'linear-gradient(90deg, #f59e0b, #fbbf24)';
+      } else {
+        kpiSuccessRate.style.color = 'var(--rose-400)';
+        kpiSuccessFill.style.background = 'linear-gradient(90deg, #f43f5e, #fb7185)';
+      }
+
+      if (state.latencies.length > 0) {
+        const sum = state.latencies.reduce((a, b) => a + b, 0);
+        const avg = Math.round(sum / state.latencies.length);
+        const min = Math.min(...state.latencies);
+        const max = Math.max(...state.latencies);
+        kpiAvgLatency.textContent = avg;
+        kpiLatencyRange.textContent = `Min: ${min}ms • Max: ${max}ms`;
+      }
+
+      kpiFaultsTotal.textContent = state.faultCount;
+      kpiFaultsBreakdown.textContent = `Python: ${state.b1Faults} • Java: ${state.b2Faults}`;
+    }
+
+    // Render Tab 1: Service Journey Cards
+    function renderJourney(item) {
+      if (!item) return;
+
+      const isSuccess = item.ok;
+      const b2Data = item.payload?.data?.backend2_data;
+      const errorMsg = item.payload?.details?.error || item.payload?.error || "Unknown Error";
+
+      let html = `
+        <div class="journey-step-card">
+          <div class="step-number">1</div>
+          <div class="step-info">
+            <div class="step-header">
+              <span class="step-name">
+                <span class="status-pill-small success">200 OK</span>
+                Frontend Ingress (Node.js Express)
+              </span>
+              <span class="step-tag">Port 3000 • Injected OTel Trace Context</span>
+            </div>
+            <div class="step-content">
+              Dispatched HTTP GET /api/process ➔ http://backend1:5000 with W3C traceparent headers
+            </div>
+          </div>
+        </div>
+
+        <div class="journey-step-card">
+          <div class="step-number">2</div>
+          <div class="step-info">
+            <div class="step-header">
+              <span class="step-name">
+                <span class="status-pill-small ${item.errorOrigin?.includes('Backend 1') ? 'danger' : 'success'}">
+                  ${item.errorOrigin?.includes('Backend 1') ? '500 Chaos Drop' : '200 OK'}
+                </span>
+                Backend 1 Processor (Python Flask)
+              </span>
+              <span class="step-tag">Port 5000 • Requests Client</span>
+            </div>
+            <div class="step-content">
+              ${item.errorOrigin?.includes('Backend 1') 
+                ? `⚡ <strong style="color:var(--rose-400)">Simulated Chaos Triggered:</strong> Randomly dropped request (10% test probability). Trace recorded in OpenTelemetry logs.`
+                : `Successfully handled request. Propagated distributed trace headers to Backend 2.`
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="journey-step-card">
+          <div class="step-number">3</div>
+          <div class="step-info">
+            <div class="step-header">
+              <span class="step-name">
+                <span class="status-pill-small ${isSuccess ? 'success' : 'danger'}">
+                  ${isSuccess ? '200 OK' : (item.errorOrigin?.includes('Backend 1') ? 'Bypassed' : '500 Error')}
+                </span>
+                Backend 2 Microservice (Java Spring Boot 3)
+              </span>
+              <span class="step-tag">Port 8080 • Cluster Service</span>
+            </div>
+            <div class="step-content">
+              ${isSuccess && b2Data
+                ? `Response Received: <code>"${b2Data.message}"</code> (source: <code>${b2Data.source}</code>)`
+                : (item.errorOrigin?.includes('Backend 1')
+                    ? `Request never reached Backend 2 due to upstream dropout in Backend 1.`
+                    : `⚡ <strong style="color:var(--rose-400)">Error:</strong> ${escapeHtml(errorMsg)}`
+                  )
+              }
+            </div>
+          </div>
+        </div>
+      `;
+
+      journeyContent.innerHTML = html;
+    }
+
+    // Render Tab 2: Syntax Highlighted JSON
+    function renderJsonOutput(json) {
+      if (!json) {
+        jsonOutputArea.textContent = "// No payload recorded.";
+        return;
+      }
+      const rawFormatted = JSON.stringify(json, null, 2);
+      jsonOutputArea.innerHTML = syntaxHighlightJson(rawFormatted);
+    }
+
+    function syntaxHighlightJson(json) {
+      const escaped = escapeHtml(json);
+      return escaped.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+        let cls = 'json-number';
+        if (/^"/.test(match)) {
+          if (/:$/.test(match)) {
+            cls = 'json-key';
+          } else {
+            cls = 'json-string';
+          }
+        } else if (/true|false/.test(match)) {
+          cls = 'json-boolean';
+        } else if (/null/.test(match)) {
+          cls = 'json-null';
+        }
+        return '<span class="' + cls + '">' + match + '</span>';
+      });
+    }
+
+    // Render Tab 4: History Table
+    function renderHistoryTable() {
+      historyBadgeCount.textContent = state.history.length;
+      if (state.history.length === 0) {
+        historyTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-tertiary); padding: 24px;">No requests dispatched yet.</td></tr>`;
+        return;
+      }
+
+      let rowsHtml = '';
+      state.history.forEach(item => {
+        const statusBadge = item.ok 
+          ? `<span class="status-pill-small success">200 OK</span>` 
+          : `<span class="status-pill-small danger">500 ERR</span>`;
+
+        const outcomeText = item.ok 
+          ? `<span style="color: var(--emerald-400)">✓ Complete Chain OK</span>`
+          : `<span style="color: var(--rose-400)">✕ ${escapeHtml(item.errorOrigin || 'Error')}</span>`;
+
+        rowsHtml += `
+          <tr>
+            <td style="font-family: var(--font-mono); color: var(--text-tertiary);">#${item.id}</td>
+            <td style="font-family: var(--font-mono); font-size: 0.76rem;">${item.time}</td>
+            <td>${statusBadge}</td>
+            <td style="font-family: var(--font-mono);">${item.duration}ms</td>
+            <td>${outcomeText}</td>
+            <td>
+              <button class="btn-inspect-mini" onclick="inspectHistoryItem(${item.id})">Inspect</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      historyTableBody.innerHTML = rowsHtml;
+    }
+
+    // Inspect historical request
+    window.inspectHistoryItem = function(id) {
+      const item = state.history.find(h => h.id === id);
+      if (!item) return;
+      state.currentJson = item.payload;
+      renderJourney(item);
+      renderJsonOutput(item.payload);
+      switchTab('journey');
+      showToast(`Loaded payload for Request #${id}`);
+    };
+
+    // Prometheus Scrape Reader
+    async function refreshPrometheusMetrics() {
+      const promRaw = document.getElementById('promRawOutput');
+      const promCounter = document.getElementById('promScrapeCounter');
+      const promTime = document.getElementById('promScrapeTime');
+
+      promRaw.textContent = "Fetching live scrape from /metrics...";
+      try {
+        const res = await fetch('/metrics', { cache: 'no-store' });
+        const text = await res.text();
+        promRaw.textContent = text;
+        promTime.textContent = new Date().toLocaleTimeString();
+
+        // Parse app_requests_total if present
+        const match = text.match(/app_requests_total\s+([0-9.]+)/);
+        if (match && match[1]) {
+          promCounter.textContent = match[1];
+        } else {
+          promCounter.textContent = "Active";
+        }
+      } catch (err) {
+        promRaw.textContent = "Error reading /metrics: " + err;
+        promCounter.textContent = "Error";
+      }
+    }
+
+    // Copy JSON to Clipboard
+    function copyJsonToClipboard() {
+      if (!state.currentJson) {
+        showToast("No JSON payload to copy yet");
+        return;
+      }
+      navigator.clipboard.writeText(JSON.stringify(state.currentJson, null, 2)).then(() => {
+        showToast("JSON payload copied to clipboard");
+      }).catch(() => {
+        showToast("Failed to copy payload");
+      });
+    }
+
+    // Toast Message
+    function showToast(msg) {
+      const toastText = document.getElementById('toastText');
+      toastText.textContent = msg;
+      toastBox.classList.add('show');
+      setTimeout(() => {
+        toastBox.classList.remove('show');
+      }, 2500);
+    }
+
+    // Reset Stats
+    function resetStats() {
+      if (state.streamTimer) {
+        clearInterval(state.streamTimer);
+        state.streamTimer = null;
+        streamSelect.value = "0";
+        streamBeacon.classList.remove('active');
+      }
+
+      state.totalRequests = 0;
+      state.successfulRequests = 0;
+      state.faultCount = 0;
+      state.b1Faults = 0;
+      state.b2Faults = 0;
+      state.latencies = [];
+      state.history = [];
+      state.currentJson = null;
+
+      updateKPIDisplay();
+      renderHistoryTable();
+
+      nodeFrontend.className = 'service-node node-frontend';
+      nodeBackend1.className = 'service-node node-backend1';
+      nodeBackend2.className = 'service-node node-backend2';
+
+      statusNodeFrontend.textContent = 'Ready';
+      statusNodeBackend1.textContent = 'Ready';
+      statusNodeBackend2.textContent = 'Ready';
+
+      chainLiveBadge.className = 'status-badge-live';
+      chainLiveBadge.innerHTML = '<span class="status-dot" style="width: 6px; height: 6px;"></span> Standby';
+      execMessage.innerHTML = 'Session reset. Click <strong>Dispatch Request</strong> to start.';
+
+      journeyContent.innerHTML = `
+        <div style="color: var(--text-tertiary); font-size: 0.85rem; padding: 24px 0; text-align: center;">
+          Stats cleared. Click <strong>Dispatch Request</strong> above to observe the execution journey.
+        </div>
+      `;
+      jsonOutputArea.textContent = "// Payload cleared.";
+
+      showToast("Session stats reset");
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Initial Load
+    refreshPrometheusMetrics();
   </script>
 </body>
 </html>
