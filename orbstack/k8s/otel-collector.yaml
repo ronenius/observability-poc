@@ -55,13 +55,6 @@ spec:
         auth:
           authenticator: headers_setter
 
-      splunk_hec:
-        endpoint: "http://splunk.splunk.svc.cluster.local:8088/services/collector"
-        token: "00000000-0000-0000-0000-000000000000"
-        tls:
-          insecure: true
-          insecure_skip_verify: true
-
     service:
       extensions: [headers_setter]
       pipelines:
@@ -73,4 +66,4 @@ spec:
           exporters: [debug, prometheusremotewrite]
         logs:
           receivers: [otlp]
-          exporters: [debug, otlphttp/loki, splunk_hec]
+          exporters: [debug, otlphttp/loki]

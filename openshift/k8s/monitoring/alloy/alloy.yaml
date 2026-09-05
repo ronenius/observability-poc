@@ -91,7 +91,7 @@ data:
       path_targets = discovery.relabel.pod_logs.output
     }
 
-    // 4. Tail the files and forward to Loki and OTel bridge
+    // 4. Tail the files and forward to Loki and Splunk
     loki.source.file "pod_logs" {
       targets    = local.file_match.pod_logs.targets
       forward_to = [
@@ -108,19 +108,35 @@ data:
       }
     }
 
-    // 6. Convert Loki stream to OpenTelemetry logs and export to Collector for Splunk
+    // 6. Direct bridge in Alloy straight to Splunk Enterprise (no intermediate collector)
     otelcol.receiver.loki "to_otel" {
       output {
-        logs = [otelcol.exporter.otlp.to_collector.input]
+        logs = [otelcol.processor.batch.to_splunk.input]
       }
     }
 
-    otelcol.exporter.otlp "to_collector" {
+    otelcol.processor.batch "to_splunk" {
+      timeout         = "1s"
+      send_batch_size = 500
+      output {
+        logs = [otelcol.exporter.splunkhec.splunk.input]
+      }
+    }
+
+    otelcol.exporter.splunkhec "splunk" {
       client {
-        endpoint = "local-edge-collector-collector.observability-poc.svc.cluster.local:4317"
-        tls {
-          insecure = true
-        }
+        endpoint = "http://splunk.splunk.svc.cluster.local:8088/services/collector"
+      }
+      splunk {
+        token      = "00000000-0000-0000-0000-000000000000"
+        source     = "alloy"
+        sourcetype = "_json"
+        index      = "main"
+      }
+      sending_queue {
+        enabled       = true
+        queue_size    = 10000
+        num_consumers = 10
       }
     }
 ---
@@ -147,6 +163,7 @@ spec:
         - /etc/alloy/config.alloy
         - --storage.path=/var/lib/alloy
         - --server.http.listen-addr=0.0.0.0:12345
+        - --feature.community-components.enabled
         env:
         - name: HOSTNAME
           valueFrom:
@@ -159,11 +176,11 @@ spec:
         # Lab-scaled resource limits
         resources:
           requests:
-            cpu: 50m
-            memory: 64Mi
-          limits:
             cpu: 100m
             memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
             
         volumeMounts:
         - name: config-volume
