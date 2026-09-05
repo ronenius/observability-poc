@@ -1,0 +1,15 @@
+isDefault: false
+persistence:
+  enabled: true
+  size: 2Gi
+storage:
+  trace:
+    backend: local
+tempo:
+  extraPorts:
+  - name: http-metrics
+    port: 3200
+    targetPort: 3200
+  multitenancyEnabled: true
+  packagedConfig:
+    replication_factor: 1

@@ -1,0 +1,32 @@
+prometheus:
+  prometheusSpec:
+    disableCompaction: true
+    enableFeatures:
+    - exemplar-storage
+    enableRemoteWriteReceiver: true
+    exemplars:
+      maxSize: 100000
+    replicas: 1
+    resources:
+      limits:
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+    retention: 2h
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 2Gi
+    thanos:
+      image: quay.io/thanos/thanos:v0.41.0
+      objectStorageConfig:
+        existingSecret:
+          key: objstore.yml
+          name: thanos-objstore-config
+  thanosService:
+    enabled: true

@@ -4,9 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Observability POC • Telemetry & Service Mesh Console</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <!-- Air-gapped offline: Native system fonts used to prevent outbound network calls -->
   <style>
     :root {
       --bg-base: #060911;
@@ -39,8 +37,8 @@
       --text-tertiary: #64748b;
       --text-mono: #38bdf8;
 
-      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+      --font-mono: ui-monospace, "SF Mono", Monaco, "Cascadia Code", "Segoe UI Mono", Menlo, Consolas, monospace;
 
       --radius-sm: 8px;
       --radius-md: 12px;

@@ -1,0 +1,60 @@
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: local-edge-collector
+  namespace: observability-poc
+spec:
+  # In air-gapped OpenShift, point to your internal registry mirror
+  image: "image-registry.openshift-image-registry.svc:5000/observability-poc/opentelemetry-collector-contrib:0.118.0"
+  
+  config:
+    extensions:
+      headers_setter:
+        headers:
+          - action: insert
+            key: X-Scope-OrgID
+            from_context: app
+
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            include_metadata: true
+            endpoint: 0.0.0.0:4317
+          http:
+            include_metadata: true
+            endpoint: 0.0.0.0:4318
+
+    exporters:
+      debug:
+        verbosity: detailed
+      
+      prometheusremotewrite:
+        endpoint: "http://prometheus-stack-kube-prom-prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+        tls:
+          insecure: true
+      
+      otlphttp/loki:
+        endpoint: "http://loki.monitoring.svc.cluster.local:3100/otlp"
+        tls:
+          insecure: true
+
+      otlp/tempo:
+        endpoint: "tempo.monitoring.svc.cluster.local:4317"
+        tls:
+          insecure: true
+        auth:
+          authenticator: headers_setter
+
+    service:
+      extensions: [headers_setter]
+      pipelines:
+        traces:
+          receivers: [otlp]
+          exporters: [debug, otlp/tempo]
+        metrics:
+          receivers: [otlp]
+          exporters: [debug, prometheusremotewrite]
+        logs:
+          receivers: [otlp]
+          exporters: [debug, otlphttp/loki]

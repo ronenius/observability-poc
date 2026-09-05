@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: grafana-alloy-scc-hostmount
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:hostmount-anyuid
+subjects:
+- kind: ServiceAccount
+  name: grafana-alloy
+  namespace: monitoring

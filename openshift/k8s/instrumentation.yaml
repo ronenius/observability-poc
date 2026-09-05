@@ -1,0 +1,63 @@
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: polyglot-instrumentation
+  namespace: observability-poc
+spec:
+  exporter:
+    endpoint: "http://local-edge-collector-collector.observability-poc.svc.cluster.local:4318"
+  env:
+    - name: OTEL_EXPORTER_OTLP_HEADERS
+      value: "app=demo_app"
+    - name: OTEL_EXPORTER_OTLP_PROTOCOL
+      value: "http/protobuf"
+    - name: OTEL_TRACES_EXPORTER
+      value: "otlp"
+    - name: OTEL_METRICS_EXPORTER
+      value: "otlp"
+    - name: OTEL_LOGS_EXPORTER
+      value: "otlp"
+      
+    # --- Trace Propagation ---
+    # Ensures Node.js, Java, and Python all use the W3C standard to pass trace context
+    - name: OTEL_PROPAGATORS
+      value: "tracecontext,baggage"
+      
+    # --- Metrics & Exemplars ---
+    # Attaches trace IDs to metric data points to link dashboard spikes to specific requests
+    - name: OTEL_METRICS_EXEMPLAR_FILTER
+      value: "trace_based"
+      
+    # --- Python Log Correlation ---
+    # Tells the Python auto-instrumentation to monkey-patch the logging library
+    - name: OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED
+      value: "true"
+    # Extracts the active trace context and injects it into Python log records
+    - name: OTEL_PYTHON_LOG_CORRELATION
+      value: "true"
+
+    # --- Global Resource Attributes ---
+    - name: OTEL_RESOURCE_ATTRIBUTES
+      value: "deployment.environment=openshift-airgap,k8s.cluster.name=ocp-416"
+
+    - name: OTEL_INSTRUMENTATION_PROMETHEUS_CLIENT_ENABLED
+      value: "true"
+
+    - name: OTEL_INSTRUMENTATION_PROMETHEUS_ENABLED
+      value: "true"
+
+    - name: OTEL_INSTRUMENTATION_RUNTIME_METRICS_ENABLED
+      value: "true"
+
+  # --- Air-Gapped Mirrored Auto-Instrumentation Container Images ---
+  python:
+    image: "image-registry.openshift-image-registry.svc:5000/observability-poc/autoinstrumentation-python:latest"
+    env:
+      - name: OTEL_EXPORTER_OTLP_PROTOCOL
+        value: "http/protobuf"
+      - name: OTEL_EXPORTER_OTLP_ENDPOINT
+        value: "http://local-edge-collector-collector.observability-poc.svc.cluster.local:4318"
+  java:
+    image: "image-registry.openshift-image-registry.svc:5000/observability-poc/autoinstrumentation-java:latest"
+  nodejs:
+    image: "image-registry.openshift-image-registry.svc:5000/observability-poc/autoinstrumentation-nodejs:latest"
