@@ -52,7 +52,6 @@ spec:
             initialDelaySeconds: 2
             periodSeconds: 10
           volumeMounts:
-            # Writable ephemeral storage required for readOnlyRootFilesystem
             - name: tmp-volume
               mountPath: /tmp
             - name: cache-volume
@@ -68,6 +67,7 @@ spec:
           emptyDir: {}
 
 ---
+# Local OrbStack Service: Exposes directly to macOS host via LoadBalancer
 apiVersion: v1
 kind: Service
 metadata:
@@ -75,7 +75,7 @@ metadata:
   labels:
     app.kubernetes.io/name: holmesgpt-docs
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   ports:
     - name: http
       port: 8080
@@ -83,46 +83,3 @@ spec:
       protocol: TCP
   selector:
     app.kubernetes.io/name: holmesgpt-docs
-
----
-apiVersion: route.openshift.io/v1
-kind: Route
-metadata:
-  name: holmesgpt-docs
-  labels:
-    app.kubernetes.io/name: holmesgpt-docs
-spec:
-  to:
-    kind: Service
-    name: holmesgpt-docs
-  port:
-    targetPort: http
-  tls:
-    termination: edge
-    insecureEdgeTerminationPolicy: Redirect
-
----
-# Airgap Zero-Trust: Deny all egress, allow ingress only from OpenShift Router
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: holmesgpt-docs-airgap
-  labels:
-    app.kubernetes.io/name: holmesgpt-docs
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: holmesgpt-docs
-  policyTypes:
-    - Ingress
-    - Egress
-  ingress:
-    # Allow traffic from OpenShift Ingress Router (HAProxy)
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              network.openshift.io/policy-group: ingress
-      ports:
-        - protocol: TCP
-          port: 8080
-  egress: [] # Empty list = completely block all outbound traffic
