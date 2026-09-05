@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources-loki-tempo
+  namespace: monitoring
+  labels:
+    grafana_datasource: "1"
+    app.kubernetes.io/part-of: kube-prometheus-stack
+data:
+  loki-tempo-datasources.yaml: |-
+    apiVersion: 1
+    datasources:
+      - name: Loki
+        type: loki
+        uid: loki
+        access: proxy
+        url: http://loki.monitoring.svc.cluster.local:3100
+        jsonData:
+          maxLines: 1500
+          derivedFields:
+            - matcherRegex: "(?:trace_?id|traceId|traceparent)[=\": ]+([a-f0-9]{16,32})"
+              name: TraceID
+              url: "$${__value.raw}"
+              datasourceUid: tempo
+
+      - name: Tempo
+        type: tempo
+        uid: tempo
+        access: proxy
+        url: http://tempo.monitoring.svc.cluster.local:3100
+        jsonData:
+          tracesToLogsV2:
+            datasourceUid: loki
+            spanStartTimeShift: "-2m"
+            spanEndTimeShift: "2m"
+            tags: ["app", "container", "pod", "service.name"]
+            filterBySpanID: false
+            filterByTraceID: true
+          tracesToMetrics:
+            datasourceUid: prometheus
+            spanStartTimeShift: "-2m"
+            spanEndTimeShift: "2m"
+            queries:
+              - name: "App Request Rate"
+                query: 'sum(rate(app_requests_total[1m]))'
+          serviceMap:
+            datasourceUid: prometheus
+          nodeGraph:
+            enabled: true
+          search:
+            hide: false
+          lokiSearch:
+            datasourceUid: loki

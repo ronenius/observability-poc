@@ -1,0 +1,19 @@
+backend:
+  replicas: 0
+deploymentMode: SingleBinary
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  storage:
+    bucketNames:
+      chunks: dummy-chunks
+      ruler: dummy-ruler
+    type: filesystem
+  useTestSchema: true
+read:
+  replicas: 0
+singleBinary:
+  replicas: 1
+write:
+  replicas: 0
