@@ -91,10 +91,13 @@ data:
       path_targets = discovery.relabel.pod_logs.output
     }
 
-    // 4. Tail the files and forward to the processor
+    // 4. Tail the files and forward to Loki and OTel bridge
     loki.source.file "pod_logs" {
       targets    = local.file_match.pod_logs.targets
-      forward_to = [loki.write.default.receiver]
+      forward_to = [
+        loki.write.default.receiver,
+        otelcol.receiver.loki.to_otel.receiver,
+      ]
     }
 
     // 5. Output to Internal Loki
@@ -102,6 +105,22 @@ data:
       endpoint {
         // The __tenant_id__ label automatically populates the X-Scope-OrgID header here
         url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+      }
+    }
+
+    // 6. Convert Loki stream to OpenTelemetry logs and export to Collector for Splunk
+    otelcol.receiver.loki "to_otel" {
+      output {
+        logs = [otelcol.exporter.otlp.to_collector.input]
+      }
+    }
+
+    otelcol.exporter.otlp "to_collector" {
+      client {
+        endpoint = "local-edge-collector-collector.observability-poc.svc.cluster.local:4317"
+        tls {
+          insecure = true
+        }
       }
     }
 ---

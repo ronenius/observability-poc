@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: splunk
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: splunk-data
+  namespace: splunk
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: splunk
+  namespace: splunk
+  labels:
+    app: splunk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: splunk
+  template:
+    metadata:
+      labels:
+        app: splunk
+    spec:
+      containers:
+      - name: splunk
+        image: splunk/splunk:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: SPLUNK_GENERAL_TERMS
+          value: "--accept-sgt-current-at-splunk-com"
+        - name: SPLUNK_START_ARGS
+          value: "--accept-license"
+        - name: SPLUNK_PASSWORD
+          value: "Admin@123456"
+        - name: SPLUNK_ROLE
+          value: "splunk_standalone"
+        - name: SPLUNK_HEC_TOKEN
+          value: "00000000-0000-0000-0000-000000000000"
+        - name: SPLUNK_HEC_ENABLE
+          value: "true"
+        - name: SPLUNK_HEC_SSL
+          value: "false"
+        ports:
+        - name: web
+          containerPort: 8000
+        - name: hec
+          containerPort: 8088
+        - name: s2s
+          containerPort: 9997
+        - name: mgmt
+          containerPort: 8089
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1.5Gi"
+          limits:
+            cpu: "2"
+            memory: "3Gi"
+        volumeMounts:
+        - name: splunk-storage
+          mountPath: /opt/splunk/var
+      volumes:
+      - name: splunk-storage
+        persistentVolumeClaim:
+          claimName: splunk-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: splunk
+  namespace: splunk
+spec:
+  type: ClusterIP
+  selector:
+    app: splunk
+  ports:
+  - name: web
+    port: 8000
+    targetPort: 8000
+  - name: hec
+    port: 8088
+    targetPort: 8088
+  - name: s2s
+    port: 9997
+    targetPort: 9997
+  - name: mgmt
+    port: 8089
+    targetPort: 8089
