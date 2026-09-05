@@ -91,16 +91,24 @@ data:
       path_targets = discovery.relabel.pod_logs.output
     }
 
-    // 4. Tail the files and forward to Loki and Splunk
+    // 4. Tail the files and pass to processing
     loki.source.file "pod_logs" {
       targets    = local.file_match.pod_logs.targets
+      forward_to = [loki.process.pod_logs.receiver]
+    }
+
+    // 5. Unwrap container runtime JSON/CRI format (extracts pure log line, removing stream & time JSON wrapper)
+    loki.process "pod_logs" {
       forward_to = [
         loki.write.default.receiver,
         otelcol.receiver.loki.to_otel.receiver,
       ]
+
+      stage.cri {}
+      stage.docker {}
     }
 
-    // 5. Output to Internal Loki
+    // 6. Output to Internal Loki
     loki.write "default" {
       endpoint {
         // The __tenant_id__ label automatically populates the X-Scope-OrgID header here
@@ -108,7 +116,7 @@ data:
       }
     }
 
-    // 6. Direct bridge in Alloy straight to Splunk Enterprise (no intermediate collector)
+    // 7. Direct bridge in Alloy straight to Splunk Enterprise (no intermediate collector)
     otelcol.receiver.loki "to_otel" {
       output {
         logs = [otelcol.processor.batch.to_splunk.input]
@@ -130,7 +138,6 @@ data:
       splunk {
         token      = "00000000-0000-0000-0000-000000000000"
         source     = "alloy"
-        sourcetype = "_json"
         index      = "main"
       }
       sending_queue {
