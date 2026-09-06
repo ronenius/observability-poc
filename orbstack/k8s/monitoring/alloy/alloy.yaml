@@ -43,6 +43,20 @@ data:
     discovery.relabel "pod_logs" {
       targets = discovery.kubernetes.pods.targets
 
+      // Early drop of infrastructure namespaces to minimize file handles and memory
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        regex         = "^(kube-system|cert-manager|monitoring|opentelemetry-operator-system|splunk)$"
+        action        = "drop"
+      }
+
+      // Early drop of pods without an 'app' label
+      rule {
+        source_labels = ["__meta_kubernetes_pod_label_app"]
+        regex         = "^$"
+        action        = "drop"
+      }
+
       // Standard label mapping
       rule {
         source_labels = ["__meta_kubernetes_namespace"]
@@ -167,8 +181,8 @@ data:
       }
       sending_queue {
         enabled       = true
-        queue_size    = 10000
-        num_consumers = 10
+        queue_size    = 200
+        num_consumers = 2
       }
     }
 ---
