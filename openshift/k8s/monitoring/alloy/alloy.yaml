@@ -37,6 +37,10 @@ data:
     // 1. Discover all pods on the local node
     discovery.kubernetes "pods" {
       role = "pod"
+      selectors {
+        role  = "pod"
+        field = "spec.nodeName=" + sys.env("HOSTNAME")
+      }
     }
 
     // 2. Map Kubernetes metadata, construct file paths, and define Loki tenant routing
@@ -112,7 +116,7 @@ data:
     // 5. Unwrap container runtime JSON/CRI format (extracts pure log line, removing stream & time JSON wrapper)
     loki.process "pod_logs" {
       forward_to = [
-        loki.relabel.loki_filter.receiver,
+        loki.write.default.receiver,
         loki.relabel.splunk_filter.receiver,
       ]
 
@@ -125,18 +129,7 @@ data:
       }
     }
 
-    // 6. Loki Filter: Drop logs from pods without an 'app' label
-    loki.relabel "loki_filter" {
-      forward_to = [loki.write.default.receiver]
-
-      rule {
-        source_labels = ["app"]
-        regex         = "^$"
-        action        = "drop"
-      }
-    }
-
-    // 7. Output to Internal Loki
+    // 6. Output to Internal Loki (dynamically uses tenant ID from 'app' label)
     loki.write "default" {
       endpoint {
         // The __tenant_id__ label automatically populates the X-Scope-OrgID header here
