@@ -40,7 +40,7 @@ metadata:
 data:
   config.yaml: |
     
-    auth_enabled: true
+    auth_enabled: false
     bloom_build:
       builder:
         planner_address: ""
@@ -91,8 +91,6 @@ data:
       - loki-memberlist.monitoring.svc.cluster.local
     pattern_ingester:
       enabled: false
-    querier:
-      multi_tenant_queries_enabled: true
     query_range:
       align_queries_with_step: true
       cache_results: true

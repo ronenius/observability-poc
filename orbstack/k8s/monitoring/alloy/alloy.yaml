@@ -62,18 +62,18 @@ data:
         target_label  = "job"
       }
       
-      // MULTI-TENANCY: Extract the 'app' label from pod metadata
+      // MULTI-TENANCY: Extract the 'app' label to drive the X-Scope-OrgID header
       rule {
         source_labels = ["__meta_kubernetes_pod_label_app"]
-        target_label  = "app"
+        target_label  = "__tenant_id__"
       }
       
       // MULTI-TENANCY FALLBACK: Assign a default tenant if the 'app' label is missing
       rule {
-        source_labels = ["app"]
+        source_labels = ["__tenant_id__"]
         regex         = "^$" 
-        replacement   = "unassigned"
-        target_label  = "app"
+        replacement   = "unassigned_tenant"
+        target_label  = "__tenant_id__"
       }
 
       // SPLUNK HEC ROUTING: Extract the 'hec-token' label from pod metadata
@@ -112,11 +112,6 @@ data:
 
       stage.cri {}
       stage.docker {}
-
-      // Dynamically assign tenant ID (X-Scope-OrgID) from the 'app' label
-      stage.tenant {
-        label = "app"
-      }
     }
 
     // 6. Output to Loki
