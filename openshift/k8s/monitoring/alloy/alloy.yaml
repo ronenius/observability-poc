@@ -113,7 +113,7 @@ data:
       forward_to = [loki.process.pod_logs.receiver]
     }
 
-    // 5. Unwrap container runtime JSON/CRI format (extracts pure log line, removing stream & time JSON wrapper)
+    // 5. Unwrap container runtime JSON/CRI format and extract log payload timestamp
     loki.process "pod_logs" {
       forward_to = [
         loki.write.default.receiver,
@@ -122,6 +122,21 @@ data:
 
       stage.cri {}
       stage.docker {}
+
+      // Extract payload timestamp from both standard text logs (starts with YYYY-MM-DD) and JSON logs (@timestamp or timestamp)
+      stage.regex {
+        expression = "(?:^|\"(?:@timestamp|timestamp)\":\\s*\")(?P<log_time>\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}(?:[.,]\\d+)?(?:Z|[+-]\\d{2}:?\\d{2})?)"
+      }
+      stage.timestamp {
+        source = "log_time"
+        format = "RFC3339Nano"
+        fallback_formats = [
+          "RFC3339",
+          "2006-01-02 15:04:05,000",
+          "2006-01-02 15:04:05.000",
+          "2006-01-02 15:04:05",
+        ]
+      }
 
       // Dynamically assign tenant ID (X-Scope-OrgID) from the 'app' label
       stage.tenant {
