@@ -62,18 +62,10 @@ data:
         target_label  = "job"
       }
       
-      // MULTI-TENANCY: Extract the 'app' label to drive the X-Scope-OrgID header
+      // MULTI-TENANCY: Extract the 'app' label from pod metadata
       rule {
         source_labels = ["__meta_kubernetes_pod_label_app"]
-        target_label  = "__tenant_id__"
-      }
-      
-      // MULTI-TENANCY FALLBACK: Assign a default tenant if the 'app' label is missing
-      rule {
-        source_labels = ["__tenant_id__"]
-        regex         = "^$" 
-        replacement   = "unassigned_tenant"
-        target_label  = "__tenant_id__"
+        target_label  = "app"
       }
 
       // SPLUNK HEC ROUTING: Extract the 'hec-token' label from pod metadata
@@ -106,15 +98,31 @@ data:
     // 5. Unwrap container runtime JSON/CRI format (extracts pure log line, removing stream & time JSON wrapper)
     loki.process "pod_logs" {
       forward_to = [
-        loki.write.default.receiver,
+        loki.relabel.loki_filter.receiver,
         loki.relabel.splunk_filter.receiver,
       ]
 
       stage.cri {}
       stage.docker {}
+
+      // Dynamically assign tenant ID (X-Scope-OrgID) from the 'app' label
+      stage.tenant {
+        label = "app"
+      }
     }
 
-    // 6. Output to Loki
+    // 6. Loki Filter: Drop logs from pods without an 'app' label
+    loki.relabel "loki_filter" {
+      forward_to = [loki.write.default.receiver]
+
+      rule {
+        source_labels = ["app"]
+        regex         = "^$"
+        action        = "drop"
+      }
+    }
+
+    // 7. Output to Loki
     loki.write "default" {
       endpoint {
         // The __tenant_id__ label automatically populates the X-Scope-OrgID header here
@@ -124,10 +132,7 @@ data:
 
     // 7. Splunk HEC Router: Drop logs from pods without a hec_token label
     loki.relabel "splunk_filter" {
-      forward_to = [
-        loki.relabel.splunk_frontend.receiver,
-        loki.relabel.splunk_backend.receiver,
-      ]
+      forward_to = [otelcol.receiver.loki.to_splunk.receiver]
 
       rule {
         source_labels = ["hec_token"]
@@ -136,82 +141,29 @@ data:
       }
     }
 
-    // Route logs with the frontend token
-    loki.relabel "splunk_frontend" {
-      forward_to = [otelcol.receiver.loki.to_splunk_frontend.receiver]
-
-      rule {
-        source_labels = ["hec_token"]
-        regex         = "11111111-1111-1111-1111-111111111111"
-        action        = "keep"
-      }
-    }
-
-    // Route logs with the backend token
-    loki.relabel "splunk_backend" {
-      forward_to = [otelcol.receiver.loki.to_splunk_backend.receiver]
-
-      rule {
-        source_labels = ["hec_token"]
-        regex         = "22222222-2222-2222-2222-222222222222"
-        action        = "keep"
-      }
-    }
-
-    // 8. Direct bridge in Alloy straight to Splunk Enterprise for Frontend Index
-    otelcol.receiver.loki "to_splunk_frontend" {
+    // 8. Bridge surviving logs into OpenTelemetry pipeline
+    otelcol.receiver.loki "to_splunk" {
       output {
-        logs = [otelcol.processor.batch.to_splunk_frontend.input]
+        logs = [otelcol.processor.batch.to_splunk.input]
       }
     }
 
-    otelcol.processor.batch "to_splunk_frontend" {
+    otelcol.processor.batch "to_splunk" {
       timeout         = "1s"
       send_batch_size = 500
       output {
-        logs = [otelcol.exporter.splunkhec.frontend.input]
+        logs = [otelcol.exporter.splunkhec.router.input]
       }
     }
 
-    otelcol.exporter.splunkhec "frontend" {
+    // 9. Single, static Splunk exporter pointing to the Synchronous Pass-Through Router
+    otelcol.exporter.splunkhec "router" {
       client {
-        endpoint = "http://splunk.splunk.svc.cluster.local:8088/services/collector"
+        endpoint = "http://splunk-hec-router.monitoring.svc.cluster.local:8088/services/collector"
       }
       splunk {
-        token      = "11111111-1111-1111-1111-111111111111"
-        source     = "alloy"
-        index      = "frontend"
-      }
-      sending_queue {
-        enabled       = true
-        queue_size    = 10000
-        num_consumers = 10
-      }
-    }
-
-    // 9. Direct bridge in Alloy straight to Splunk Enterprise for Backend Index
-    otelcol.receiver.loki "to_splunk_backend" {
-      output {
-        logs = [otelcol.processor.batch.to_splunk_backend.input]
-      }
-    }
-
-    otelcol.processor.batch "to_splunk_backend" {
-      timeout         = "1s"
-      send_batch_size = 500
-      output {
-        logs = [otelcol.exporter.splunkhec.backend.input]
-      }
-    }
-
-    otelcol.exporter.splunkhec "backend" {
-      client {
-        endpoint = "http://splunk.splunk.svc.cluster.local:8088/services/collector"
-      }
-      splunk {
-        token      = "22222222-2222-2222-2222-222222222222"
-        source     = "alloy"
-        index      = "backend"
+        token  = "dynamic"
+        source = "alloy"
       }
       sending_queue {
         enabled       = true
