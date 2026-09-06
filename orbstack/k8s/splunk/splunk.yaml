@@ -137,6 +137,17 @@ data:
     index = backend
     indexes = backend
     token = 22222222-2222-2222-2222-222222222222
+
+  props.conf: |
+    [httpevent]
+    TRANSFORMS-extract_payload_time = extract_payload_time
+
+    [source::alloy]
+    TRANSFORMS-extract_payload_time = extract_payload_time
+
+  transforms.conf: |
+    [extract_payload_time]
+    INGEST_EVAL = _time = coalesce(strptime(_raw, "%Y-%m-%d %H:%M:%S,%3N"), strptime(replace(_raw, ".*\"(?:@timestamp|timestamp)\":\s*\"([^\"]+)\".*", "\1"), "%Y-%m-%dT%H:%M:%S.%3N%Z"), strptime(replace(_raw, ".*\"(?:@timestamp|timestamp)\":\s*\"([^\"]+)\".*", "\1"), "%Y-%m-%dT%H:%M:%S.%6N%Z"), strptime(replace(_raw, ".*\"(?:@timestamp|timestamp)\":\s*\"([^\"]+)\".*", "\1"), "%Y-%m-%dT%H:%M:%S%Z"), _time)
 ---
 apiVersion: v1
 kind: Service
