@@ -82,27 +82,14 @@ subjects:
     namespace: holmes
 ---
 apiVersion: v1
-kind: Secret
-metadata:
-  name: holmes-secrets
-  namespace: holmes
-type: Opaque
-stringData:
-  OPENAI_API_KEY: "sk-placeholder"
-  GEMINI_API_KEY: "your-gemini-api-key-here"
-  GRAFANA_USER: "admin"
-  GRAFANA_PASSWORD: "9oCV8ish5xVlGx1Kl4K8kTn3CJIb34QGad2B6Dc3"
-  SPLUNK_USER: "admin"
-  SPLUNK_PASSWORD: "Admin@123456"
----
-apiVersion: v1
 kind: ConfigMap
 metadata:
   name: holmes-config
   namespace: holmes
 data:
   config.yaml: |
-    model: "gemini/gemini-3.6-flash"
+    model: "gemini/gemini-3.5-flash-lite"
+    max_steps: 10
     alertmanager_url: "http://prometheus-stack-kube-prom-alertmanager.monitoring.svc.cluster.local:9093"
     toolsets:
       kubernetes/core:
@@ -132,6 +119,20 @@ data:
             X-Scope-OrgID: "demo_app"
     custom_toolsets:
       - "/var/holmes/config/splunk_toolset.yaml"
+
+  model_list.yaml: |
+    gemini/gemini-3-flash:
+      model: "gemini/gemini-3-flash-preview"
+    gemini/gemini-3-flash-preview:
+      model: "gemini/gemini-3-flash-preview"
+    gemini/gemini-3.5-flash-lite:
+      model: "gemini/gemini-3.5-flash-lite"
+    gemini/gemini-3.6-flash:
+      model: "gemini/gemini-3.6-flash"
+    gemini/gemini-3.7-flash:
+      model: "gemini/gemini-3.7-flash"
+    gemini/gemini-3.8-flash:
+      model: "gemini/gemini-3.8-flash"
 
   splunk_toolset.yaml: |
     toolsets:
@@ -178,7 +179,8 @@ spec:
           command:
             - "/bin/sh"
             - "-c"
-            - "mkdir -p /var/holmes/config && cp -L /etc/holmes/config-ro/* /var/holmes/config/ && exec python3 -u server.py"
+            - |
+              python3 -c 'import re; p="/app/holmes/core/models.py"; f=open(p,"r"); s=f.read(); f.close(); s=re.sub(r"if not first_item\.get\([\"\x27]role[\"\x27]\) == [\"\x27]system[\"\x27]:\s+raise ValueError\([^\)]+\)", "if not first_item.get(\"role\") == \"system\":\n                conversation_history.insert(0, {\"role\": \"system\", \"content\": \"\"})", s); f=open(p,"w"); f.write(s); f.close(); p2="/app/holmes/core/llm.py"; f=open(p2,"r"); s2=f.read(); f.close(); s2=s2.replace("logging.error(f\"Couldn'\''t find model: {model_key} in model list\")", "if \"/\" in model_key:\n                tm = \"gemini/gemini-3-flash-preview\" if model_key == \"gemini/gemini-3-flash\" else model_key\n                entry = self._create_model_entry(model=tm, model_name=model_key, base_url=self.config.api_base, is_robusta_model=False, api_key=self.config.api_key, api_version=self.config.api_version)\n                with self._lock: self._llms[model_key] = entry\n                return entry\n            logging.error(f\"Couldn'\''t find model: {model_key} in model list\")"); f=open(p2,"w"); f.write(s2); f.close()' && mkdir -p /var/holmes/config && cp -L /etc/holmes/config-ro/* /var/holmes/config/ && exec python3 -u server.py
           ports:
             - name: http
               containerPort: 5050
@@ -187,6 +189,12 @@ spec:
               value: "5050"
             - name: HOLMES_CONFIGPATH_DIR
               value: "/var/holmes/config"
+            - name: OVERRIDE_MAX_CONTENT_SIZE
+              value: "150000"
+            - name: OVERRIDE_MAX_OUTPUT_TOKEN
+              value: "4096"
+            - name: TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS
+              value: "10000"
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:

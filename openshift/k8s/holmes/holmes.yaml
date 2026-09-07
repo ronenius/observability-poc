@@ -99,20 +99,6 @@ subjects:
     namespace: holmes
 ---
 apiVersion: v1
-kind: Secret
-metadata:
-  name: holmes-secrets
-  namespace: holmes
-type: Opaque
-stringData:
-  OPENAI_API_KEY: "sk-placeholder"
-  GEMINI_API_KEY: "your-gemini-api-key-here"
-  GRAFANA_USER: "admin"
-  GRAFANA_PASSWORD: "9oCV8ish5xVlGx1Kl4K8kTn3CJIb34QGad2B6Dc3"
-  SPLUNK_USER: "admin"
-  SPLUNK_PASSWORD: "Admin@123456"
----
-apiVersion: v1
 kind: ConfigMap
 metadata:
   name: holmes-config
@@ -149,6 +135,20 @@ data:
             X-Scope-OrgID: "demo_app"
     custom_toolsets:
       - "/var/holmes/config/splunk_toolset.yaml"
+
+  model_list.yaml: |
+    gemini/gemini-3-flash:
+      model: "gemini/gemini-3-flash-preview"
+    gemini/gemini-3-flash-preview:
+      model: "gemini/gemini-3-flash-preview"
+    gemini/gemini-3.5-flash-lite:
+      model: "gemini/gemini-3.5-flash-lite"
+    gemini/gemini-3.6-flash:
+      model: "gemini/gemini-3.6-flash"
+    gemini/gemini-3.7-flash:
+      model: "gemini/gemini-3.7-flash"
+    gemini/gemini-3.8-flash:
+      model: "gemini/gemini-3.8-flash"
 
   splunk_toolset.yaml: |
     toolsets:
@@ -216,6 +216,12 @@ spec:
               value: "True"
             - name: HOLMES_CONFIGPATH_DIR
               value: "/var/holmes/config"
+            - name: OVERRIDE_MAX_CONTENT_SIZE
+              value: "150000"
+            - name: OVERRIDE_MAX_OUTPUT_TOKEN
+              value: "4096"
+            - name: TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS
+              value: "10000"
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
