@@ -126,7 +126,6 @@ data:
     disabled = 0
     token = 00000000-0000-0000-0000-000000000000
     index = main
-    indexes = frontend,backend,main
 ---
 apiVersion: v1
 kind: Service
