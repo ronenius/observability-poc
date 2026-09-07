@@ -134,24 +134,98 @@ data:
     gemini/gemini-3.8-flash:
       model: "gemini/gemini-3.8-flash"
 
+  splunk_search.py: |
+    #!/usr/bin/env python3
+    import sys, os, urllib.request, urllib.parse, urllib.error, ssl, base64, json
+
+    raw_query = sys.argv[1].strip() if len(sys.argv) > 1 else ""
+    earliest = sys.argv[2] if len(sys.argv) > 2 else "-1h"
+    latest = sys.argv[3] if len(sys.argv) > 3 else "now"
+
+    while (raw_query.startswith("\x27") and raw_query.endswith("\x27")) or (raw_query.startswith("\"") and raw_query.endswith("\"")):
+        raw_query = raw_query[1:-1].strip()
+
+    if raw_query.lower().startswith("search "):
+        raw_query = raw_query[7:].strip()
+
+    if "index=" not in raw_query and not raw_query.startswith("|"):
+        raw_query = f"index=* ({raw_query})" if raw_query else "index=*"
+
+    if "|" not in raw_query:
+        raw_query = f"{raw_query} | head 50"
+
+    search_prefix = "" if raw_query.startswith("|") else "search "
+    final_query = f"{search_prefix}{raw_query}"
+
+    user = os.environ.get("SPLUNK_USER", "admin")
+    password = os.environ.get("SPLUNK_PASSWORD", "Admin@123456")
+    url = "https://splunk.splunk.svc.cluster.local:8089/services/search/jobs/export"
+
+    data = urllib.parse.urlencode({
+        "search": final_query,
+        "output_mode": "json",
+        "earliest_time": earliest,
+        "latest_time": latest
+    }).encode("utf-8")
+
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+
+    req = urllib.request.Request(url, data=data)
+    auth = base64.b64encode(f"{user}:{password}".encode()).decode()
+    req.add_header("Authorization", f"Basic {auth}")
+
+    try:
+        with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
+            raw_output = resp.read().decode("utf-8", errors="replace").strip()
+            lines = raw_output.splitlines()
+            results = []
+            for line in lines:
+                try:
+                    obj = json.loads(line)
+                    if not obj.get("preview", False) and "result" in obj:
+                        results.append(obj["result"])
+                except:
+                    pass
+            if results:
+                print(json.dumps(results, indent=2))
+            elif lines:
+                print(raw_output)
+            else:
+                print("No events found.")
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8", errors="replace")
+        print(f"Splunk API HTTP Error {e.code}: {err_body}")
+    except Exception as e:
+        print(f"Error querying Splunk: {e}")
+
   splunk_toolset.yaml: |
     toolsets:
       splunk:
         description: "Search and retrieve logs from Splunk Enterprise using SPL queries"
         prerequisites:
-          - command: "curl --version"
+          - command: "python3 --version"
         tags:
           - core
         tools:
           - name: splunk_search
-            description: "Execute a Splunk search query (SPL) and return matching log events in JSON format"
+            description: "Execute a Splunk SPL search query and return matching log events in JSON format. Application logs are stored in 'frontend', 'backend1', and 'backend2' indices. Example: 'index=* | stats count' or 'index=* error | head 50'."
+            parameters:
+              splunk_query:
+                type: string
+                description: "The Splunk search SPL query. Examples: 'index=* | stats count', 'index=backend* error | head 20', 'index=* | stats count by index'"
+                required: true
+              earliest:
+                type: string
+                description: "Earliest time for search (e.g. '-15m', '-1h', '-24h'). Defaults to '-1h'."
+                required: false
+              latest:
+                type: string
+                description: "Latest time for search (e.g. 'now'). Defaults to 'now'."
+                required: false
             command: |
-              curl -s -k -u "${SPLUNK_USER}:${SPLUNK_PASSWORD}" \
-                "https://splunk.splunk.svc.cluster.local:8089/services/search/jobs/export" \
-                --data-urlencode "search=search {{ splunk_query }}" \
-                --data-urlencode "output_mode=json" \
-                --data-urlencode "earliest_time={{ earliest | default('-1h') }}" \
-                --data-urlencode "latest_time={{ latest | default('now') }}"
+              python3 /var/holmes/config/splunk_search.py "{{ splunk_query }}" "{{ earliest | default('-1h') }}" "{{ latest | default('now') }}"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -234,14 +308,14 @@ spec:
             httpGet:
               path: /healthz
               port: http
-            initialDelaySeconds: 15
+            initialDelaySeconds: 60
             periodSeconds: 10
             timeoutSeconds: 5
           readinessProbe:
             httpGet:
               path: /readyz
               port: http
-            initialDelaySeconds: 10
+            initialDelaySeconds: 30
             periodSeconds: 5
             timeoutSeconds: 3
           volumeMounts:
