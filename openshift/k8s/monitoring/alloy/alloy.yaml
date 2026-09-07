@@ -242,6 +242,8 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/alloy
+        - name: alloy-storage
+          mountPath: /var/lib/alloy
         - name: varlog
           mountPath: /var/log
           readOnly: true
@@ -252,6 +254,10 @@ spec:
       - name: config-volume
         configMap:
           name: alloy-config
+      - name: alloy-storage
+        hostPath:
+          path: /var/lib/alloy
+          type: DirectoryOrCreate
       - name: varlog
         hostPath:
           path: /var/log
