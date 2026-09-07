@@ -109,8 +109,9 @@ data:
 
     // 4. Tail the files and pass to processing
     loki.source.file "pod_logs" {
-      targets    = local.file_match.pod_logs.targets
-      forward_to = [loki.process.pod_logs.receiver]
+      targets       = local.file_match.pod_logs.targets
+      forward_to    = [loki.process.pod_logs.receiver]
+      tail_from_end = true
     }
 
     // 5. Unwrap container runtime JSON/CRI format and extract log payload timestamp
