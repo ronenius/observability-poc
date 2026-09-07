@@ -12,7 +12,7 @@ spec:
     metadata:
       labels:
         app: frontend
-        hec-token: "11111111-1111-1111-1111-111111111111"
+        splunk-index: "frontend"
       annotations:
         instrumentation.opentelemetry.io/inject-nodejs: "true"
     spec:

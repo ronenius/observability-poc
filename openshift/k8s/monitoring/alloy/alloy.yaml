@@ -86,10 +86,10 @@ data:
         target_label  = "app"
       }
 
-      // SPLUNK HEC ROUTING: Extract the 'hec-token' label from pod metadata
+      // SPLUNK HEC ROUTING: Extract the 'splunk-index' label from pod metadata
       rule {
-        source_labels = ["__meta_kubernetes_pod_label_hec_token"]
-        target_label  = "hec_token"
+        source_labels = ["__meta_kubernetes_pod_label_splunk_index"]
+        target_label  = "splunk_index"
       }
 
       // Construct the physical file path from the pod UID
@@ -152,12 +152,12 @@ data:
       }
     }
 
-    // 7. Splunk HEC Router: Drop logs from pods without a hec_token label
+    // 7. Splunk Filter: Drop logs from pods without a splunk_index label
     loki.relabel "splunk_filter" {
       forward_to = [otelcol.receiver.loki.to_splunk.receiver]
 
       rule {
-        source_labels = ["hec_token"]
+        source_labels = ["splunk_index"]
         regex         = "^$"
         action        = "drop"
       }
@@ -174,18 +174,21 @@ data:
       timeout         = "1s"
       send_batch_size = 500
       output {
-        logs = [otelcol.exporter.splunkhec.router.input]
+        logs = [otelcol.exporter.splunkhec.splunk.input]
       }
     }
 
-    // 9. Single, static Splunk exporter pointing to the Synchronous Pass-Through Router
-    otelcol.exporter.splunkhec "router" {
+    // 9. Single static Splunk exporter pointing directly to Splunk HEC with dynamic index routing
+    otelcol.exporter.splunkhec "splunk" {
       client {
-        endpoint = "http://splunk-hec-router.monitoring.svc.cluster.local:8088/services/collector"
+        endpoint = "http://splunk.splunk.svc.cluster.local:8088/services/collector"
       }
       splunk {
-        token  = "dynamic"
+        token  = "00000000-0000-0000-0000-000000000000"
         source = "alloy"
+      }
+      otel_attrs_to_hec_metadata {
+        index = "splunk_index"
       }
       sending_queue {
         enabled       = true
