@@ -52,6 +52,17 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'Gemini 2.5 Flash';
       case 'gemini/gemini-2.0-flash':
         return 'Gemini 2.0 Flash';
+      case 'gemma-4':
+      case 'gemma/gemma-4':
+      case 'openai/gemma-4':
+        return 'Gemma 4 (OSS)';
+      case 'qwen-3.8':
+      case 'qwen/qwen-3.8':
+      case 'openai/qwen-3.8':
+        return 'Qwen 3.8 (OSS)';
+      case 'gpt-oss':
+      case 'openai/gpt-oss':
+        return 'GPT-OSS (OSS)';
       case 'default':
         return 'Cluster Default';
       default:

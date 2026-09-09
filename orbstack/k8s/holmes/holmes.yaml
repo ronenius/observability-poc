@@ -133,6 +133,18 @@ data:
       model: "gemini/gemini-3.7-flash"
     gemini/gemini-3.8-flash:
       model: "gemini/gemini-3.8-flash"
+    gemma-4:
+      model: "openai/gemma-4"
+    gemma/gemma-4:
+      model: "openai/gemma-4"
+    qwen-3.8:
+      model: "openai/qwen-3.8"
+    qwen/qwen-3.8:
+      model: "openai/qwen-3.8"
+    gpt-oss:
+      model: "openai/gpt-oss"
+    openai/gpt-oss:
+      model: "openai/gpt-oss"
 
   splunk_search.py: |
     #!/usr/bin/env python3
@@ -254,7 +266,7 @@ spec:
             - "/bin/sh"
             - "-c"
             - |
-              python3 -c 'import re; p="/app/holmes/core/models.py"; f=open(p,"r"); s=f.read(); f.close(); s=re.sub(r"if not first_item\.get\([\"\x27]role[\"\x27]\) == [\"\x27]system[\"\x27]:\s+raise ValueError\([^\)]+\)", "if not first_item.get(\"role\") == \"system\":\n                conversation_history.insert(0, {\"role\": \"system\", \"content\": \"\"})", s); f=open(p,"w"); f.write(s); f.close(); p2="/app/holmes/core/llm.py"; f=open(p2,"r"); s2=f.read(); f.close(); s2=s2.replace("logging.error(f\"Couldn'\''t find model: {model_key} in model list\")", "if \"/\" in model_key:\n                tm = \"gemini/gemini-3-flash-preview\" if model_key == \"gemini/gemini-3-flash\" else model_key\n                entry = self._create_model_entry(model=tm, model_name=model_key, base_url=self.config.api_base, is_robusta_model=False, api_key=self.config.api_key, api_version=self.config.api_version)\n                with self._lock: self._llms[model_key] = entry\n                return entry\n            logging.error(f\"Couldn'\''t find model: {model_key} in model list\")"); f=open(p2,"w"); f.write(s2); f.close()' && mkdir -p /var/holmes/config && cp -L /etc/holmes/config-ro/* /var/holmes/config/ && exec python3 -u server.py
+              python3 -c 'import os; p1="/app/holmes/config.py"; f1=open(p1,"r"); s1=f1.read(); f1.close(); s1=s1.replace("api_key = api_key.get_secret_value()", "api_key = api_key.get_secret_value() if hasattr(api_key, \"get_secret_value\") else api_key"); f1=open(p1,"w"); f1.write(s1); f1.close(); p2="/app/holmes/core/llm.py"; f2=open(p2,"r"); s2=f2.read(); f2.close(); rep1="        for _name, _entry in llms.items():\n            _l = _name.lower()\n            _ek = os.environ.get(\"GEMMA_API_KEY\") if \"gemma\" in _l else os.environ.get(\"QWEN_API_KEY\") if \"qwen\" in _l else os.environ.get(\"GPT_OSS_API_KEY\") if (\"gpt-oss\" in _l or \"gpt_oss\" in _l) else None\n            _eb = os.environ.get(\"GEMMA_API_BASE\") if \"gemma\" in _l else os.environ.get(\"QWEN_API_BASE\") if \"qwen\" in _l else os.environ.get(\"GPT_OSS_API_BASE\") if (\"gpt-oss\" in _l or \"gpt_oss\" in _l) else None\n            if _ek:\n                from pydantic import SecretStr\n                _entry.api_key = SecretStr(_ek)\n            if _eb: _entry.api_base = _eb; _entry.base_url = _eb\n        return llms"; rep2="            _low = model_key.lower()\n            _k = os.environ.get(\"GEMMA_API_KEY\") if \"gemma\" in _low else os.environ.get(\"QWEN_API_KEY\") if \"qwen\" in _low else os.environ.get(\"GPT_OSS_API_KEY\") if (\"gpt-oss\" in _low or \"gpt_oss\" in _low) else self.config.api_key\n            _b = os.environ.get(\"GEMMA_API_BASE\") if \"gemma\" in _low else os.environ.get(\"QWEN_API_BASE\") if \"qwen\" in _low else os.environ.get(\"GPT_OSS_API_BASE\") if (\"gpt-oss\" in _low or \"gpt_oss\" in _low) else self.config.api_base\n            _tm = \"gemini/gemini-3-flash-preview\" if model_key == \"gemini/gemini-3-flash\" else (\"openai/gemma-4\" if \"gemma\" in _low else \"openai/qwen-3.8\" if \"qwen\" in _low else \"openai/gpt-oss\" if (\"gpt-oss\" in _low or \"gpt_oss\" in _low) else model_key if \"/\" in model_key else None)\n            if _tm:\n                from pydantic import SecretStr\n                _sec_k = SecretStr(_k) if (_k and isinstance(_k, str)) else _k\n                entry = self._create_model_entry(model=_tm, model_name=model_key, base_url=_b, is_robusta_model=False, api_key=_sec_k, api_base=_b, api_version=self.config.api_version)\n                with self._lock: self._llms[model_key] = entry\n                return entry\n            logging.error(f\"Couldn\x27t find model: {model_key} in model list\")"; s2=s2.replace("        return llms", rep1); s2=s2.replace("logging.error(f\"Couldn\x27t find model: {model_key} in model list\")", rep2.strip()); f2=open(p2,"w"); f2.write(s2); f2.close()' && mkdir -p /var/holmes/config && cp -L /etc/holmes/config-ro/* /var/holmes/config/ && exec python3 -u server.py
           ports:
             - name: http
               containerPort: 5050
@@ -286,6 +298,42 @@ spec:
                 secretKeyRef:
                   name: holmes-secrets
                   key: GEMINI_API_KEY
+                  optional: true
+            - name: GEMMA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: holmes-secrets
+                  key: GEMMA_API_KEY
+                  optional: true
+            - name: GEMMA_API_BASE
+              valueFrom:
+                secretKeyRef:
+                  name: holmes-secrets
+                  key: GEMMA_API_BASE
+                  optional: true
+            - name: QWEN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: holmes-secrets
+                  key: QWEN_API_KEY
+                  optional: true
+            - name: QWEN_API_BASE
+              valueFrom:
+                secretKeyRef:
+                  name: holmes-secrets
+                  key: QWEN_API_BASE
+                  optional: true
+            - name: GPT_OSS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: holmes-secrets
+                  key: GPT_OSS_API_KEY
+                  optional: true
+            - name: GPT_OSS_API_BASE
+              valueFrom:
+                secretKeyRef:
+                  name: holmes-secrets
+                  key: GPT_OSS_API_BASE
                   optional: true
             - name: SPLUNK_USER
               valueFrom:
