@@ -31,6 +31,8 @@ kind: Service
 metadata:
   name: frontend
   namespace: observability-poc
+  labels:
+    app: frontend
 spec:
   type: ClusterIP
   ports:

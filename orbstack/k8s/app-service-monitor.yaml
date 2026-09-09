@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: app-services
+  namespace: observability-poc
+  labels:
+    release: prometheus-stack
+    app.kubernetes.io/part-of: observability-poc
+spec:
+  jobLabel: app
+  namespaceSelector:
+    matchNames:
+      - observability-poc
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - backend1
+          - backend2
+          - frontend
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 10s
+      scrapeTimeout: 5s

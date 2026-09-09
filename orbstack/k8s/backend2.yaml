@@ -28,9 +28,12 @@ kind: Service
 metadata:
   name: backend2
   namespace: observability-poc
+  labels:
+    app: backend2
 spec:
   ports:
-  - port: 8080
+  - name: http
+    port: 8080
     targetPort: 8080
   selector:
     app: backend2

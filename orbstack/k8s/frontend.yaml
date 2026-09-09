@@ -31,10 +31,13 @@ kind: Service
 metadata:
   name: frontend
   namespace: observability-poc
+  labels:
+    app: frontend
 spec:
   type: LoadBalancer
   ports:
-  - port: 80
+  - name: http
+    port: 80
     targetPort: 3000
   selector:
     app: frontend
