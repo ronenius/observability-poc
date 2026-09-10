@@ -1297,7 +1297,7 @@
             </div>
             <div class="spec-item">
               <span class="spec-key">Chaos Mode:</span>
-              <span class="chaos-pill">10% Drop Fault</span>
+              <span class="chaos-pill">Disabled (0%)</span>
             </div>
             <div class="spec-item">
               <span class="spec-key">Endpoint:</span>
@@ -1335,7 +1335,7 @@
             </div>
             <div class="spec-item">
               <span class="spec-key">Chaos Mode:</span>
-              <span class="chaos-pill">10% Random 500</span>
+              <span class="chaos-pill">Disabled (0%)</span>
             </div>
             <div class="spec-item">
               <span class="spec-key">Endpoint:</span>
@@ -1552,10 +1552,10 @@
             <circle cx="12" cy="12" r="10"></circle>
             <polygon points="12 8 8 12 12 16 16 12 12 8"></polygon>
           </svg>
-          Chaos Verification (10% Drop)
+          Chaos Verification (Disabled / 0%)
         </h4>
         <p>
-          Backend 1 and Backend 2 inject simulated 10% failure rates to test cluster resiliency, error budgeting, and trace alerting in Grafana & Prometheus.
+          Simulated failure injection is set to 0% (disabled by default, configurable via FAILURE_RATE environment variable).
         </p>
       </div>
     </footer>

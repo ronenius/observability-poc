@@ -1,4 +1,5 @@
 import logging
+import os
 import random
 
 import requests
@@ -28,9 +29,13 @@ def trigger_backend2():
     REQUEST_COUNTER.inc()
     logger.info("Backend 1 (Python) received request from Frontend.")
     
-    # 10% chance to drop the request and return an error
-    if random.random() < 0.10:
-        logger.error("Simulated failure: Randomly dropping request (10% chance).")
+    # Simulated failure: set to 0% by default (configurable via FAILURE_RATE env var)
+    try:
+        failure_rate = float(os.environ.get("FAILURE_RATE", "0.0"))
+    except ValueError:
+        failure_rate = 0.0
+    if failure_rate > 0 and random.random() < failure_rate:
+        logger.error(f"Simulated failure: Randomly dropping request ({int(failure_rate * 100)}% chance).")
         return jsonify({"error": "Simulated failure in Backend 1"}), 500
 
     logger.info("Forwarding to Backend 2...")

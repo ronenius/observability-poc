@@ -49,9 +49,17 @@ public class Backend2Application {
         requestCounter.inc();
         logger.info("Backend 2 received a request. Processing data...");
 
-        // 10% failure probability
-        if (random.nextDouble() < 0.10) {
-            logger.error("Simulated 10% failure triggered in Backend 2");
+        // Simulated failure: set to 0% by default (configurable via FAILURE_RATE env var)
+        double failureRate = 0.0;
+        try {
+            String envRate = System.getenv("FAILURE_RATE");
+            if (envRate != null) {
+                failureRate = Double.parseDouble(envRate);
+            }
+        } catch (Exception ignored) {}
+
+        if (failureRate > 0 && random.nextDouble() < failureRate) {
+            logger.error("Simulated " + (int) (failureRate * 100) + "% failure triggered in Backend 2");
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Backend 2 failed randomly");
         }
 

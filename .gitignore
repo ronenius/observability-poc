@@ -11,3 +11,4 @@ dist/
 # Temporary & Log files
 *.log
 *.tmp
+*.tar
