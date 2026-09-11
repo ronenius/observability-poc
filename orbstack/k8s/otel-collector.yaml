@@ -50,17 +50,12 @@ spec:
         auth:
           authenticator: headers_setter
 
-      otlphttp/test:
-        endpoint: "https://webhook.site/e6a4fea4-72fd-42a7-9914-853ad00d354f"
-        auth:
-          authenticator: headers_setter
-
     service:
       extensions: [headers_setter]
       pipelines:
         traces:
           receivers: [otlp]
-          exporters: [debug, otlp/tempo, otlphttp/test]
+          exporters: [debug, otlp/tempo]
         metrics:
           receivers: [otlp]
           exporters: [debug, prometheusremotewrite]

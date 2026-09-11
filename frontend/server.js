@@ -8,17 +8,18 @@ const promClient = require('prom-client');
 const app = express();
 const BACKEND1_URL = process.env.BACKEND1_URL || 'http://backend1:3001';
 
+const transports = [new winston.transports.Console()];
+if (process.env.OTEL_LOGS_EXPORTER !== 'none') {
+    transports.push(new OpenTelemetryTransportV3());
+}
+
 const logger = winston.createLogger({
     level: 'info',
     format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.json()
     ),
-    transports: [
-        new winston.transports.Console(),
-        // Add the OTel transport here
-        new OpenTelemetryTransportV3() 
-    ]
+    transports: transports
 });
 
 // Prometheus Metric Definition

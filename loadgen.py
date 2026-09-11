@@ -5,7 +5,7 @@ import threading
 import urllib.request
 
 TARGET_URL = sys.argv[1] if len(sys.argv) > 1 else "http://192.168.139.2/api/trigger"
-TARGET_RATE = 30.0  # requests per second
+TARGET_RATE = float(sys.argv[2]) if len(sys.argv) > 2 else 90.0  # requests per second
 
 stats = {
     "total_sent": 0,
@@ -20,7 +20,7 @@ stop_event = threading.Event()
 
 def send_request():
     try:
-        req = urllib.request.Request(TARGET_URL, headers={"User-Agent": "LoadGen/30rps"})
+        req = urllib.request.Request(TARGET_URL, headers={"User-Agent": f"LoadGen/{int(TARGET_RATE)}rps"})
         with urllib.request.urlopen(req, timeout=8) as res:
             with lock:
                 stats["total_sent"] += 1
