@@ -1,0 +1,137 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vector-config
+  namespace: noc-platform
+data:
+  vector.yaml: |
+    data_dir: /var/lib/vector
+
+    api:
+      enabled: true
+      address: 0.0.0.0:8686
+
+    sources:
+      webhook_in:
+        type: http_server
+        address: 0.0.0.0:9000
+        encoding: json
+
+      syslog_in:
+        type: syslog
+        address: 0.0.0.0:5140
+        mode: tcp
+
+    transforms:
+      process_alerts:
+        type: remap
+        inputs:
+          - webhook_in
+          - syslog_in
+        source: |
+          # 1. In-flight Filter: Drop DEBUG, noisy trace events, and test environments immediately!
+          sev = upcase(string(.severity || .level || "INFO") ?? "INFO")
+          env = downcase(string(.environment || "prod") ?? "prod")
+          if sev == "DEBUG" || env == "test" || env == "dev" {
+            abort
+          }
+
+          # 2. Normalize Core Netcool Fields
+          .severity = sev
+          .node = string(.node || .host || .hostname || "unknown-node") ?? "unknown-node"
+          .alert_key = string(.alert_key || .event || .check || "default-check") ?? "default-check"
+          .summary = string(.summary || .message || .text || "No summary provided") ?? "No summary provided"
+          
+          # 3. Deterministic Unique Identifier (Node + Alert Key)
+          .identifier = .node + ":" + .alert_key
+
+          # 4. Pack Arbitrary Attributes into Custom Fields Bag (Envelope Pattern)
+          custom = {}
+          if exists(.ip) { custom.ip = .ip }
+          if exists(.datacenter) { custom.datacenter = .datacenter }
+          if exists(.cluster) { custom.cluster = .cluster }
+          if exists(.source) { custom.source = .source }
+          if exists(.tags) { custom.tags = .tags }
+          if exists(.custom_fields) && is_object(.custom_fields) {
+            custom = merge(custom, object!(.custom_fields))
+          }
+          .custom_fields = custom
+
+    sinks:
+      to_instance1_api:
+        type: http
+        inputs:
+          - process_alerts
+        uri: http://instance1-api:8081/api/v1/ingest
+        method: post
+        encoding:
+          codec: json
+        batch:
+          timeout_secs: 0.05
+          max_events: 50
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vector
+  namespace: noc-platform
+  labels:
+    app: vector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vector
+  template:
+    metadata:
+      labels:
+        app: vector
+    spec:
+      containers:
+      - name: vector
+        image: timberio/vector:0.38.0-alpine
+        imagePullPolicy: IfNotPresent
+        args: ["--config", "/etc/vector/vector.yaml"]
+        ports:
+        - containerPort: 9000
+          name: webhook
+        - containerPort: 5140
+          name: syslog
+        - containerPort: 8686
+          name: api
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/vector/vector.yaml
+          subPath: vector.yaml
+        - name: data
+          mountPath: /var/lib/vector
+      volumes:
+      - name: config
+        configMap:
+          name: vector-config
+      - name: data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vector-ingress
+  namespace: noc-platform
+spec:
+  type: ClusterIP
+  selector:
+    app: vector
+  ports:
+  - port: 9000
+    targetPort: 9000
+    name: webhook
+  - port: 5140
+    targetPort: 5140
+    name: syslog

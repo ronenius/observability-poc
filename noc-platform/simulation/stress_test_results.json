@@ -1,0 +1,1326 @@
+{
+  "timestamp": "2026-09-12T14:47:41.475651+00:00",
+  "duration_sec": 180.0,
+  "total_alerts_sent": 180000,
+  "http_success": 180000,
+  "http_error": 0,
+  "sustained_eps": 1000.0,
+  "latency_p50_ms": 0.81,
+  "latency_p95_ms": 2.03,
+  "latency_p99_ms": 4.24,
+  "peak_outbox_backlog": 50,
+  "queue_drain_time_sec": 0.03,
+  "final_db1_alerts": 36886,
+  "final_db2_alerts": 36886,
+  "final_db2_replicated": 180000,
+  "db1_hot_updates": 48839,
+  "db1_total_updates": 143001,
+  "hot_update_efficiency_pct": 34.2,
+  "peak_cpu": {
+    "forwarder": 5.74,
+    "postgres1": 22.72,
+    "vector": 9.38,
+    "gateway2": 16.18,
+    "postgres2": 13.01,
+    "api1": 34.67
+  },
+  "peak_mem": {
+    "forwarder": {
+      "val": "26.74MiB",
+      "perc": 1.31
+    },
+    "postgres1": {
+      "val": "109.5MiB",
+      "perc": 5.35
+    },
+    "vector": {
+      "val": "35.73MiB",
+      "perc": 1.74
+    },
+    "gateway2": {
+      "val": "39.16MiB",
+      "perc": 1.91
+    },
+    "postgres2": {
+      "val": "89.35MiB",
+      "perc": 4.36
+    },
+    "api1": {
+      "val": "44.22MiB",
+      "perc": 2.16
+    }
+  },
+  "telemetry_points": [
+    {
+      "elapsed_sec": 0.0,
+      "alerts_sent": 2920,
+      "instant_eps": 3061841920.0,
+      "outbox_backlog": 0,
+      "db1_alerts": 1058,
+      "db2_alerts": 1068,
+      "db2_replicated": 2900,
+      "hot_updates": 271,
+      "total_updates": 1221,
+      "containers": {
+        "forwarder": {
+          "cpu": 3.51,
+          "mem": "24.99MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 12.88,
+          "mem": "40.92MiB",
+          "mem_perc": 2.0
+        },
+        "vector": {
+          "cpu": 3.88,
+          "mem": "11.78MiB",
+          "mem_perc": 0.58
+        },
+        "gateway2": {
+          "cpu": 8.11,
+          "mem": "39.16MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 6.37,
+          "mem": "25MiB",
+          "mem_perc": 1.22
+        },
+        "api1": {
+          "cpu": 15.44,
+          "mem": "39.48MiB",
+          "mem_perc": 1.93
+        }
+      }
+    },
+    {
+      "elapsed_sec": 5.9,
+      "alerts_sent": 8720,
+      "instant_eps": 1472.7,
+      "outbox_backlog": 50,
+      "db1_alerts": 2238,
+      "db2_alerts": 2238,
+      "db2_replicated": 8700,
+      "hot_updates": 1837,
+      "total_updates": 6071,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.74,
+          "mem": "24.99MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 12.27,
+          "mem": "45.29MiB",
+          "mem_perc": 2.21
+        },
+        "vector": {
+          "cpu": 3.3,
+          "mem": "15.75MiB",
+          "mem_perc": 0.77
+        },
+        "gateway2": {
+          "cpu": 5.86,
+          "mem": "39.16MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 4.4,
+          "mem": "26.23MiB",
+          "mem_perc": 1.28
+        },
+        "api1": {
+          "cpu": 13.25,
+          "mem": "44.22MiB",
+          "mem_perc": 2.16
+        }
+      }
+    },
+    {
+      "elapsed_sec": 11.7,
+      "alerts_sent": 14470,
+      "instant_eps": 1234.2,
+      "outbox_backlog": 0,
+      "db1_alerts": 3441,
+      "db2_alerts": 3453,
+      "db2_replicated": 14440,
+      "hot_updates": 3323,
+      "total_updates": 10318,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.63,
+          "mem": "24.99MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 10.13,
+          "mem": "50.64MiB",
+          "mem_perc": 2.47
+        },
+        "vector": {
+          "cpu": 2.69,
+          "mem": "15.64MiB",
+          "mem_perc": 0.76
+        },
+        "gateway2": {
+          "cpu": 6.09,
+          "mem": "39.16MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 4.84,
+          "mem": "28.01MiB",
+          "mem_perc": 1.37
+        },
+        "api1": {
+          "cpu": 14.34,
+          "mem": "43.8MiB",
+          "mem_perc": 2.14
+        }
+      }
+    },
+    {
+      "elapsed_sec": 17.5,
+      "alerts_sent": 20240,
+      "instant_eps": 1158.3,
+      "outbox_backlog": 0,
+      "db1_alerts": 4617,
+      "db2_alerts": 4617,
+      "db2_replicated": 20190,
+      "hot_updates": 5090,
+      "total_updates": 15415,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.53,
+          "mem": "26.74MiB",
+          "mem_perc": 1.31
+        },
+        "postgres1": {
+          "cpu": 10.06,
+          "mem": "56.31MiB",
+          "mem_perc": 2.75
+        },
+        "vector": {
+          "cpu": 2.53,
+          "mem": "15.8MiB",
+          "mem_perc": 0.77
+        },
+        "gateway2": {
+          "cpu": 6.02,
+          "mem": "39.16MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 4.88,
+          "mem": "29.12MiB",
+          "mem_perc": 1.42
+        },
+        "api1": {
+          "cpu": 14.38,
+          "mem": "43.56MiB",
+          "mem_perc": 2.13
+        }
+      }
+    },
+    {
+      "elapsed_sec": 23.2,
+      "alerts_sent": 26090,
+      "instant_eps": 1122.4,
+      "outbox_backlog": 0,
+      "db1_alerts": 5855,
+      "db2_alerts": 5855,
+      "db2_replicated": 26070,
+      "hot_updates": 6473,
+      "total_updates": 19520,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.58,
+          "mem": "25.02MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 9.62,
+          "mem": "54.73MiB",
+          "mem_perc": 2.67
+        },
+        "vector": {
+          "cpu": 2.85,
+          "mem": "28.59MiB",
+          "mem_perc": 1.4
+        },
+        "gateway2": {
+          "cpu": 7.08,
+          "mem": "39.21MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 7.66,
+          "mem": "30.51MiB",
+          "mem_perc": 1.49
+        },
+        "api1": {
+          "cpu": 14.32,
+          "mem": "40.56MiB",
+          "mem_perc": 1.98
+        }
+      }
+    },
+    {
+      "elapsed_sec": 29.1,
+      "alerts_sent": 31800,
+      "instant_eps": 1093.2,
+      "outbox_backlog": 50,
+      "db1_alerts": 7049,
+      "db2_alerts": 7049,
+      "db2_replicated": 31770,
+      "hot_updates": 8152,
+      "total_updates": 24473,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.7,
+          "mem": "25.01MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 10.28,
+          "mem": "60.44MiB",
+          "mem_perc": 2.95
+        },
+        "vector": {
+          "cpu": 2.49,
+          "mem": "28.73MiB",
+          "mem_perc": 1.4
+        },
+        "gateway2": {
+          "cpu": 5.97,
+          "mem": "39.21MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 5.13,
+          "mem": "31.68MiB",
+          "mem_perc": 1.55
+        },
+        "api1": {
+          "cpu": 14.02,
+          "mem": "40.56MiB",
+          "mem_perc": 1.98
+        }
+      }
+    },
+    {
+      "elapsed_sec": 34.8,
+      "alerts_sent": 37580,
+      "instant_eps": 1079.8,
+      "outbox_backlog": 0,
+      "db1_alerts": 8238,
+      "db2_alerts": 8238,
+      "db2_replicated": 37520,
+      "hot_updates": 9625,
+      "total_updates": 28676,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.51,
+          "mem": "25.01MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 10.12,
+          "mem": "62.97MiB",
+          "mem_perc": 3.07
+        },
+        "vector": {
+          "cpu": 2.76,
+          "mem": "29.21MiB",
+          "mem_perc": 1.43
+        },
+        "gateway2": {
+          "cpu": 6.67,
+          "mem": "39.21MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 4.84,
+          "mem": "32.9MiB",
+          "mem_perc": 1.61
+        },
+        "api1": {
+          "cpu": 13.91,
+          "mem": "42.31MiB",
+          "mem_perc": 2.07
+        }
+      }
+    },
+    {
+      "elapsed_sec": 40.6,
+      "alerts_sent": 44270,
+      "instant_eps": 1090.9,
+      "outbox_backlog": 0,
+      "db1_alerts": 9606,
+      "db2_alerts": 9606,
+      "db2_replicated": 44220,
+      "hot_updates": 11560,
+      "total_updates": 34200,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.76,
+          "mem": "25.01MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 9.92,
+          "mem": "63.45MiB",
+          "mem_perc": 3.1
+        },
+        "vector": {
+          "cpu": 2.53,
+          "mem": "28.54MiB",
+          "mem_perc": 1.39
+        },
+        "gateway2": {
+          "cpu": 5.88,
+          "mem": "39.21MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 4.72,
+          "mem": "34.04MiB",
+          "mem_perc": 1.66
+        },
+        "api1": {
+          "cpu": 15.07,
+          "mem": "42.15MiB",
+          "mem_perc": 2.06
+        }
+      }
+    },
+    {
+      "elapsed_sec": 47.3,
+      "alerts_sent": 50030,
+      "instant_eps": 1058.5,
+      "outbox_backlog": 0,
+      "db1_alerts": 10724,
+      "db2_alerts": 10724,
+      "db2_replicated": 49970,
+      "hot_updates": 13181,
+      "total_updates": 38881,
+      "containers": {
+        "forwarder": {
+          "cpu": 3.23,
+          "mem": "25.01MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 13.79,
+          "mem": "64.84MiB",
+          "mem_perc": 3.17
+        },
+        "vector": {
+          "cpu": 3.74,
+          "mem": "28.67MiB",
+          "mem_perc": 1.4
+        },
+        "gateway2": {
+          "cpu": 8.5,
+          "mem": "39.21MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 6.74,
+          "mem": "35.28MiB",
+          "mem_perc": 1.72
+        },
+        "api1": {
+          "cpu": 15.24,
+          "mem": "41.99MiB",
+          "mem_perc": 2.05
+        }
+      }
+    },
+    {
+      "elapsed_sec": 53.0,
+      "alerts_sent": 55870,
+      "instant_eps": 1053.6,
+      "outbox_backlog": 0,
+      "db1_alerts": 11841,
+      "db2_alerts": 11848,
+      "db2_replicated": 55820,
+      "hot_updates": 14806,
+      "total_updates": 43601,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.57,
+          "mem": "25.01MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 9.57,
+          "mem": "65.67MiB",
+          "mem_perc": 3.21
+        },
+        "vector": {
+          "cpu": 2.79,
+          "mem": "28.25MiB",
+          "mem_perc": 1.38
+        },
+        "gateway2": {
+          "cpu": 6.8,
+          "mem": "39.21MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 4.87,
+          "mem": "36.88MiB",
+          "mem_perc": 1.8
+        },
+        "api1": {
+          "cpu": 14.75,
+          "mem": "41.99MiB",
+          "mem_perc": 2.05
+        }
+      }
+    },
+    {
+      "elapsed_sec": 58.9,
+      "alerts_sent": 61680,
+      "instant_eps": 1047.7,
+      "outbox_backlog": 0,
+      "db1_alerts": 13015,
+      "db2_alerts": 13015,
+      "db2_replicated": 61610,
+      "hot_updates": 16357,
+      "total_updates": 48176,
+      "containers": {
+        "forwarder": {
+          "cpu": 3.78,
+          "mem": "25.01MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 18.13,
+          "mem": "67.37MiB",
+          "mem_perc": 3.29
+        },
+        "vector": {
+          "cpu": 4.6,
+          "mem": "28.42MiB",
+          "mem_perc": 1.39
+        },
+        "gateway2": {
+          "cpu": 8.57,
+          "mem": "39.21MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 6.74,
+          "mem": "38.32MiB",
+          "mem_perc": 1.87
+        },
+        "api1": {
+          "cpu": 22.8,
+          "mem": "41.99MiB",
+          "mem_perc": 2.05
+        }
+      }
+    },
+    {
+      "elapsed_sec": 64.7,
+      "alerts_sent": 67640,
+      "instant_eps": 1045.7,
+      "outbox_backlog": 0,
+      "db1_alerts": 14227,
+      "db2_alerts": 14227,
+      "db2_replicated": 67580,
+      "hot_updates": 18123,
+      "total_updates": 53312,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.7,
+          "mem": "25.91MiB",
+          "mem_perc": 1.27
+        },
+        "postgres1": {
+          "cpu": 19.31,
+          "mem": "68.53MiB",
+          "mem_perc": 3.35
+        },
+        "vector": {
+          "cpu": 6.03,
+          "mem": "11.33MiB",
+          "mem_perc": 0.55
+        },
+        "gateway2": {
+          "cpu": 12.74,
+          "mem": "39.14MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 10.02,
+          "mem": "39.84MiB",
+          "mem_perc": 1.95
+        },
+        "api1": {
+          "cpu": 25.2,
+          "mem": "41.13MiB",
+          "mem_perc": 2.01
+        }
+      }
+    },
+    {
+      "elapsed_sec": 70.6,
+      "alerts_sent": 73440,
+      "instant_eps": 1039.6,
+      "outbox_backlog": 50,
+      "db1_alerts": 15453,
+      "db2_alerts": 15453,
+      "db2_replicated": 73380,
+      "hot_updates": 19565,
+      "total_updates": 57500,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.87,
+          "mem": "25.23MiB",
+          "mem_perc": 1.23
+        },
+        "postgres1": {
+          "cpu": 11.17,
+          "mem": "69.65MiB",
+          "mem_perc": 3.4
+        },
+        "vector": {
+          "cpu": 3.47,
+          "mem": "11.2MiB",
+          "mem_perc": 0.55
+        },
+        "gateway2": {
+          "cpu": 7.18,
+          "mem": "39.14MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 5.73,
+          "mem": "41.59MiB",
+          "mem_perc": 2.03
+        },
+        "api1": {
+          "cpu": 17.01,
+          "mem": "41.13MiB",
+          "mem_perc": 2.01
+        }
+      }
+    },
+    {
+      "elapsed_sec": 76.4,
+      "alerts_sent": 80500,
+      "instant_eps": 1053.1,
+      "outbox_backlog": 0,
+      "db1_alerts": 16886,
+      "db2_alerts": 16886,
+      "db2_replicated": 80430,
+      "hot_updates": 21590,
+      "total_updates": 63351,
+      "containers": {}
+    },
+    {
+      "elapsed_sec": 83.5,
+      "alerts_sent": 86260,
+      "instant_eps": 1033.1,
+      "outbox_backlog": 50,
+      "db1_alerts": 18030,
+      "db2_alerts": 18030,
+      "db2_replicated": 86180,
+      "hot_updates": 23019,
+      "total_updates": 67647,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.82,
+          "mem": "25.23MiB",
+          "mem_perc": 1.23
+        },
+        "postgres1": {
+          "cpu": 11.56,
+          "mem": "78.25MiB",
+          "mem_perc": 3.82
+        },
+        "vector": {
+          "cpu": 3.22,
+          "mem": "12.23MiB",
+          "mem_perc": 0.6
+        },
+        "gateway2": {
+          "cpu": 6.36,
+          "mem": "39.14MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 4.7,
+          "mem": "45.36MiB",
+          "mem_perc": 2.21
+        },
+        "api1": {
+          "cpu": 15.55,
+          "mem": "41.13MiB",
+          "mem_perc": 2.01
+        }
+      }
+    },
+    {
+      "elapsed_sec": 89.3,
+      "alerts_sent": 92020,
+      "instant_eps": 1030.9,
+      "outbox_backlog": 0,
+      "db1_alerts": 19189,
+      "db2_alerts": 19197,
+      "db2_replicated": 91980,
+      "hot_updates": 24760,
+      "total_updates": 72783,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.98,
+          "mem": "25.23MiB",
+          "mem_perc": 1.23
+        },
+        "postgres1": {
+          "cpu": 11.75,
+          "mem": "84.93MiB",
+          "mem_perc": 4.15
+        },
+        "vector": {
+          "cpu": 3.17,
+          "mem": "12.51MiB",
+          "mem_perc": 0.61
+        },
+        "gateway2": {
+          "cpu": 6.36,
+          "mem": "39.14MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 5.42,
+          "mem": "46.46MiB",
+          "mem_perc": 2.27
+        },
+        "api1": {
+          "cpu": 16.94,
+          "mem": "41.13MiB",
+          "mem_perc": 2.01
+        }
+      }
+    },
+    {
+      "elapsed_sec": 95.0,
+      "alerts_sent": 99080,
+      "instant_eps": 1042.7,
+      "outbox_backlog": 0,
+      "db1_alerts": 20665,
+      "db2_alerts": 20673,
+      "db2_replicated": 99030,
+      "hot_updates": 26503,
+      "total_updates": 77776,
+      "containers": {}
+    },
+    {
+      "elapsed_sec": 102.1,
+      "alerts_sent": 104930,
+      "instant_eps": 1027.8,
+      "outbox_backlog": 0,
+      "db1_alerts": 21688,
+      "db2_alerts": 21688,
+      "db2_replicated": 104230,
+      "hot_updates": 27967,
+      "total_updates": 81923,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.45,
+          "mem": "25.23MiB",
+          "mem_perc": 1.23
+        },
+        "postgres1": {
+          "cpu": 12.88,
+          "mem": "88.88MiB",
+          "mem_perc": 4.34
+        },
+        "vector": {
+          "cpu": 2.36,
+          "mem": "35.73MiB",
+          "mem_perc": 1.74
+        },
+        "gateway2": {
+          "cpu": 5.76,
+          "mem": "39.14MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 6.98,
+          "mem": "49.27MiB",
+          "mem_perc": 2.41
+        },
+        "api1": {
+          "cpu": 19.25,
+          "mem": "42.11MiB",
+          "mem_perc": 2.06
+        }
+      }
+    },
+    {
+      "elapsed_sec": 107.9,
+      "alerts_sent": 110770,
+      "instant_eps": 1026.3,
+      "outbox_backlog": 0,
+      "db1_alerts": 22993,
+      "db2_alerts": 22993,
+      "db2_replicated": 110730,
+      "hot_updates": 29805,
+      "total_updates": 87222,
+      "containers": {
+        "forwarder": {
+          "cpu": 3.24,
+          "mem": "25.23MiB",
+          "mem_perc": 1.23
+        },
+        "postgres1": {
+          "cpu": 19.59,
+          "mem": "92.5MiB",
+          "mem_perc": 4.52
+        },
+        "vector": {
+          "cpu": 9.38,
+          "mem": "35.09MiB",
+          "mem_perc": 1.71
+        },
+        "gateway2": {
+          "cpu": 6.76,
+          "mem": "39.14MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 6.05,
+          "mem": "51.15MiB",
+          "mem_perc": 2.5
+        },
+        "api1": {
+          "cpu": 27.61,
+          "mem": "42.52MiB",
+          "mem_perc": 2.08
+        }
+      }
+    },
+    {
+      "elapsed_sec": 113.8,
+      "alerts_sent": 116520,
+      "instant_eps": 1024.2,
+      "outbox_backlog": 0,
+      "db1_alerts": 24120,
+      "db2_alerts": 24120,
+      "db2_replicated": 116450,
+      "hot_updates": 31437,
+      "total_updates": 91979,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.72,
+          "mem": "24.91MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 10.84,
+          "mem": "92.57MiB",
+          "mem_perc": 4.52
+        },
+        "vector": {
+          "cpu": 3.21,
+          "mem": "12.7MiB",
+          "mem_perc": 0.62
+        },
+        "gateway2": {
+          "cpu": 6.38,
+          "mem": "39.21MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 4.95,
+          "mem": "59.41MiB",
+          "mem_perc": 2.9
+        },
+        "api1": {
+          "cpu": 15.65,
+          "mem": "40.11MiB",
+          "mem_perc": 1.96
+        }
+      }
+    },
+    {
+      "elapsed_sec": 119.5,
+      "alerts_sent": 122420,
+      "instant_eps": 1024.2,
+      "outbox_backlog": 50,
+      "db1_alerts": 25295,
+      "db2_alerts": 25295,
+      "db2_replicated": 122350,
+      "hot_updates": 33171,
+      "total_updates": 97030,
+      "containers": {
+        "forwarder": {
+          "cpu": 3.53,
+          "mem": "24.91MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 13.77,
+          "mem": "93.14MiB",
+          "mem_perc": 4.55
+        },
+        "vector": {
+          "cpu": 3.93,
+          "mem": "11.99MiB",
+          "mem_perc": 0.59
+        },
+        "gateway2": {
+          "cpu": 8.52,
+          "mem": "39.21MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 6.95,
+          "mem": "61.53MiB",
+          "mem_perc": 3.0
+        },
+        "api1": {
+          "cpu": 18.14,
+          "mem": "40.11MiB",
+          "mem_perc": 1.96
+        }
+      }
+    },
+    {
+      "elapsed_sec": 125.4,
+      "alerts_sent": 128250,
+      "instant_eps": 1022.6,
+      "outbox_backlog": 0,
+      "db1_alerts": 26503,
+      "db2_alerts": 26503,
+      "db2_replicated": 128190,
+      "hot_updates": 34632,
+      "total_updates": 101173,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.98,
+          "mem": "24.91MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 11.46,
+          "mem": "93.89MiB",
+          "mem_perc": 4.58
+        },
+        "vector": {
+          "cpu": 3.41,
+          "mem": "11.93MiB",
+          "mem_perc": 0.58
+        },
+        "gateway2": {
+          "cpu": 6.69,
+          "mem": "39.21MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 5.59,
+          "mem": "86.12MiB",
+          "mem_perc": 4.2
+        },
+        "api1": {
+          "cpu": 17.98,
+          "mem": "40.11MiB",
+          "mem_perc": 1.96
+        }
+      }
+    },
+    {
+      "elapsed_sec": 131.3,
+      "alerts_sent": 134040,
+      "instant_eps": 1021.2,
+      "outbox_backlog": 0,
+      "db1_alerts": 27637,
+      "db2_alerts": 27637,
+      "db2_replicated": 133990,
+      "hot_updates": 36397,
+      "total_updates": 106236,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.85,
+          "mem": "24.91MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 12.22,
+          "mem": "95.45MiB",
+          "mem_perc": 4.66
+        },
+        "vector": {
+          "cpu": 2.59,
+          "mem": "11.91MiB",
+          "mem_perc": 0.58
+        },
+        "gateway2": {
+          "cpu": 6.61,
+          "mem": "39.21MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 5.32,
+          "mem": "86.86MiB",
+          "mem_perc": 4.24
+        },
+        "api1": {
+          "cpu": 18.02,
+          "mem": "40.11MiB",
+          "mem_perc": 1.96
+        }
+      }
+    },
+    {
+      "elapsed_sec": 137.0,
+      "alerts_sent": 139930,
+      "instant_eps": 1021.1,
+      "outbox_backlog": 0,
+      "db1_alerts": 28860,
+      "db2_alerts": 28864,
+      "db2_replicated": 139780,
+      "hot_updates": 37851,
+      "total_updates": 110402,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.56,
+          "mem": "24.91MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 9.72,
+          "mem": "96.11MiB",
+          "mem_perc": 4.69
+        },
+        "vector": {
+          "cpu": 2.47,
+          "mem": "11.62MiB",
+          "mem_perc": 0.57
+        },
+        "gateway2": {
+          "cpu": 5.76,
+          "mem": "39.21MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 5.07,
+          "mem": "89.35MiB",
+          "mem_perc": 4.36
+        },
+        "api1": {
+          "cpu": 15.11,
+          "mem": "40.11MiB",
+          "mem_perc": 1.96
+        }
+      }
+    },
+    {
+      "elapsed_sec": 142.9,
+      "alerts_sent": 145740,
+      "instant_eps": 1019.6,
+      "outbox_backlog": 0,
+      "db1_alerts": 30010,
+      "db2_alerts": 30020,
+      "db2_replicated": 145680,
+      "hot_updates": 39564,
+      "total_updates": 115469,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.5,
+          "mem": "24.91MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 10.99,
+          "mem": "97.2MiB",
+          "mem_perc": 4.75
+        },
+        "vector": {
+          "cpu": 2.69,
+          "mem": "11.52MiB",
+          "mem_perc": 0.56
+        },
+        "gateway2": {
+          "cpu": 6.42,
+          "mem": "39.21MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 4.22,
+          "mem": "68.33MiB",
+          "mem_perc": 3.34
+        },
+        "api1": {
+          "cpu": 15.39,
+          "mem": "40.11MiB",
+          "mem_perc": 1.96
+        }
+      }
+    },
+    {
+      "elapsed_sec": 148.7,
+      "alerts_sent": 151390,
+      "instant_eps": 1017.8,
+      "outbox_backlog": 0,
+      "db1_alerts": 31148,
+      "db2_alerts": 31148,
+      "db2_replicated": 151330,
+      "hot_updates": 41039,
+      "total_updates": 119680,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.47,
+          "mem": "24.91MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 11.24,
+          "mem": "98.94MiB",
+          "mem_perc": 4.83
+        },
+        "vector": {
+          "cpu": 2.92,
+          "mem": "11.46MiB",
+          "mem_perc": 0.56
+        },
+        "gateway2": {
+          "cpu": 5.97,
+          "mem": "39.21MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 5.14,
+          "mem": "69.85MiB",
+          "mem_perc": 3.41
+        },
+        "api1": {
+          "cpu": 16.66,
+          "mem": "40.11MiB",
+          "mem_perc": 1.96
+        }
+      }
+    },
+    {
+      "elapsed_sec": 154.4,
+      "alerts_sent": 157220,
+      "instant_eps": 1018.3,
+      "outbox_backlog": 0,
+      "db1_alerts": 32280,
+      "db2_alerts": 32280,
+      "db2_replicated": 156980,
+      "hot_updates": 42724,
+      "total_updates": 124704,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.92,
+          "mem": "25.05MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 10.66,
+          "mem": "102.9MiB",
+          "mem_perc": 5.02
+        },
+        "vector": {
+          "cpu": 3.73,
+          "mem": "11.16MiB",
+          "mem_perc": 0.54
+        },
+        "gateway2": {
+          "cpu": 6.97,
+          "mem": "39.14MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 5.68,
+          "mem": "65.52MiB",
+          "mem_perc": 3.2
+        },
+        "api1": {
+          "cpu": 15.58,
+          "mem": "41.09MiB",
+          "mem_perc": 2.01
+        }
+      }
+    },
+    {
+      "elapsed_sec": 160.2,
+      "alerts_sent": 163930,
+      "instant_eps": 1023.1,
+      "outbox_backlog": 0,
+      "db1_alerts": 33697,
+      "db2_alerts": 33710,
+      "db2_replicated": 163880,
+      "hot_updates": 44391,
+      "total_updates": 129707,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.47,
+          "mem": "25.05MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 10.75,
+          "mem": "104.6MiB",
+          "mem_perc": 5.11
+        },
+        "vector": {
+          "cpu": 2.66,
+          "mem": "15.24MiB",
+          "mem_perc": 0.74
+        },
+        "gateway2": {
+          "cpu": 6.35,
+          "mem": "39.14MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 5.39,
+          "mem": "64.48MiB",
+          "mem_perc": 3.15
+        },
+        "api1": {
+          "cpu": 16.33,
+          "mem": "41.09MiB",
+          "mem_perc": 2.01
+        }
+      }
+    },
+    {
+      "elapsed_sec": 166.9,
+      "alerts_sent": 169780,
+      "instant_eps": 1017.0,
+      "outbox_backlog": 0,
+      "db1_alerts": 34847,
+      "db2_alerts": 34856,
+      "db2_replicated": 169720,
+      "hot_updates": 46027,
+      "total_updates": 134582,
+      "containers": {
+        "forwarder": {
+          "cpu": 5.74,
+          "mem": "25.05MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 22.72,
+          "mem": "107.6MiB",
+          "mem_perc": 5.25
+        },
+        "vector": {
+          "cpu": 3.66,
+          "mem": "33.63MiB",
+          "mem_perc": 1.64
+        },
+        "gateway2": {
+          "cpu": 16.18,
+          "mem": "39.14MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 13.01,
+          "mem": "66.45MiB",
+          "mem_perc": 3.24
+        },
+        "api1": {
+          "cpu": 34.67,
+          "mem": "41.84MiB",
+          "mem_perc": 2.04
+        }
+      }
+    },
+    {
+      "elapsed_sec": 172.8,
+      "alerts_sent": 175550,
+      "instant_eps": 1016.0,
+      "outbox_backlog": 0,
+      "db1_alerts": 36011,
+      "db2_alerts": 36011,
+      "db2_replicated": 175470,
+      "hot_updates": 47534,
+      "total_updates": 139055,
+      "containers": {
+        "forwarder": {
+          "cpu": 2.56,
+          "mem": "25.05MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 10.42,
+          "mem": "108.2MiB",
+          "mem_perc": 5.28
+        },
+        "vector": {
+          "cpu": 2.33,
+          "mem": "33.09MiB",
+          "mem_perc": 1.62
+        },
+        "gateway2": {
+          "cpu": 6.51,
+          "mem": "39.14MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 6.67,
+          "mem": "67.72MiB",
+          "mem_perc": 3.31
+        },
+        "api1": {
+          "cpu": 14.93,
+          "mem": "41.59MiB",
+          "mem_perc": 2.03
+        }
+      }
+    },
+    {
+      "elapsed_sec": 178.6,
+      "alerts_sent": 180000,
+      "instant_eps": 1008.1,
+      "outbox_backlog": 0,
+      "db1_alerts": 36886,
+      "db2_alerts": 36886,
+      "db2_replicated": 180000,
+      "hot_updates": 48839,
+      "total_updates": 143001,
+      "containers": {
+        "forwarder": {
+          "cpu": 0.97,
+          "mem": "25.05MiB",
+          "mem_perc": 1.22
+        },
+        "postgres1": {
+          "cpu": 5.35,
+          "mem": "109.5MiB",
+          "mem_perc": 5.35
+        },
+        "vector": {
+          "cpu": 1.02,
+          "mem": "30.93MiB",
+          "mem_perc": 1.51
+        },
+        "gateway2": {
+          "cpu": 2.4,
+          "mem": "39.14MiB",
+          "mem_perc": 1.91
+        },
+        "postgres2": {
+          "cpu": 3.34,
+          "mem": "68.98MiB",
+          "mem_perc": 3.37
+        },
+        "api1": {
+          "cpu": 5.76,
+          "mem": "41.59MiB",
+          "mem_perc": 2.03
+        }
+      }
+    }
+  ]
+}

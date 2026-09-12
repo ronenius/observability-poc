@@ -1,0 +1,63 @@
+data_dir: /var/lib/vector
+
+api:
+  enabled: true
+  address: 0.0.0.0:8686
+
+sources:
+  webhook_in:
+    type: http_server
+    address: 0.0.0.0:9000
+    encoding: json
+
+  syslog_in:
+    type: syslog
+    address: 0.0.0.0:5140
+    mode: tcp
+
+transforms:
+  process_alerts:
+    type: remap
+    inputs:
+      - webhook_in
+      - syslog_in
+    source: |
+      # 1. In-flight Filter: Drop DEBUG, noisy trace events, and test environments immediately!
+      sev = upcase(string(.severity || .level || "INFO") ?? "INFO")
+      env = downcase(string(.environment || "prod") ?? "prod")
+      if sev == "DEBUG" || env == "test" || env == "dev" {
+        abort
+      }
+
+      # 2. Normalize Core Netcool Fields
+      .severity = sev
+      .node = string(.node || .host || .hostname || "unknown-node") ?? "unknown-node"
+      .alert_key = string(.alert_key || .event || .check || "default-check") ?? "default-check"
+      .summary = string(.summary || .message || .text || "No summary provided") ?? "No summary provided"
+      
+      # 3. Deterministic Unique Identifier (Node + Alert Key)
+      .identifier = .node + ":" + .alert_key
+
+      custom = {}
+      if exists(.ip) { custom.ip = .ip }
+      if exists(.datacenter) { custom.datacenter = .datacenter }
+      if exists(.cluster) { custom.cluster = .cluster }
+      if exists(.source) { custom.source = .source }
+      if exists(.tags) { custom.tags = .tags }
+      if exists(.custom_fields) && is_object(.custom_fields) {
+        custom = merge(custom, object!(.custom_fields))
+      }
+      .custom_fields = custom
+
+sinks:
+  to_instance1_api:
+    type: http
+    inputs:
+      - process_alerts
+    uri: http://instance1-api:8081/api/v1/ingest
+    method: post
+    encoding:
+      codec: json
+    batch:
+      timeout_secs: 0.1
+      max_events: 10
