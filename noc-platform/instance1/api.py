@@ -9,17 +9,27 @@ import os
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from fastapi import FastAPI, HTTPException, Query, Response, Request, status
 from pydantic import BaseModel, Field
 import psycopg
 from psycopg.rows import dict_row
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-
 DB_URI = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@postgres-instance1:5432/postgres")
 
 app = FastAPI(title="NOC Alert Engine - Instance 1 API", version="1.0.0")
+
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, FileResponse
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 import queue
 from contextlib import contextmanager
@@ -204,27 +214,74 @@ def list_alerts(
     status: Optional[str] = None,
     severity: Optional[str] = None,
     node: Optional[str] = None,
-    limit: int = 100
+    search: Optional[str] = None,
+    minutes: Optional[int] = None,
+    since: Optional[str] = None,
+    until: Optional[str] = None,
+    limit: int = 250,
+    offset: int = 0
 ):
     query = "SELECT * FROM alerts WHERE deleted_at IS NULL"
     params = []
     if status:
-        query += " AND status = %s"
-        params.append(status.upper())
+        if status.upper() == "ACTIVE":
+            query += " AND status != 'RESOLVED'"
+        else:
+            query += " AND status = %s"
+            params.append(status.upper())
     if severity:
         query += " AND severity = %s"
         params.append(severity.upper())
     if node:
         query += " AND node = %s"
         params.append(node)
+    if search:
+        query += " AND (identifier ILIKE %s OR node ILIKE %s OR alert_key ILIKE %s OR summary ILIKE %s)"
+        pattern = f"%{search}%"
+        params.extend([pattern, pattern, pattern, pattern])
+    if minutes is not None and minutes > 0:
+        query += " AND last_occurrence >= NOW() - (%s || ' minutes')::interval"
+        params.append(str(minutes))
+    elif since is not None:
+        query += " AND last_occurrence >= %s::timestamptz"
+        params.append(since)
+    if until is not None:
+        query += " AND last_occurrence <= %s::timestamptz"
+        params.append(until)
 
-    query += " ORDER BY last_occurrence DESC LIMIT %s"
-    params.append(limit)
+    query += " ORDER BY last_occurrence DESC LIMIT %s OFFSET %s"
+    params.extend([limit, offset])
 
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(query, params)
             return cur.fetchall()
+
+@app.get("/api/v1/metrics/summary")
+def get_metrics_summary(minutes: Optional[int] = None):
+    time_filter = ""
+    params = []
+    if minutes is not None and minutes > 0:
+        time_filter = " AND last_occurrence >= NOW() - (%s || ' minutes')::interval"
+        params.append(str(minutes))
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                SELECT 
+                    count(*) as total_alerts,
+                    count(*) FILTER (WHERE status != 'RESOLVED') as active_alerts,
+                    count(*) FILTER (WHERE severity = 'CRITICAL' AND status != 'RESOLVED') as critical_alerts,
+                    count(*) FILTER (WHERE severity = 'MAJOR' AND status != 'RESOLVED') as major_alerts,
+                    count(*) FILTER (WHERE severity = 'WARNING' AND status != 'RESOLVED') as warning_alerts,
+                    count(*) FILTER (WHERE is_flapping = TRUE) as flapping_alerts,
+                    coalesce(sum(tally), 0) as total_events_tally,
+                    count(*) FILTER (WHERE status = 'ACKNOWLEDGED') as acked_alerts,
+                    count(*) FILTER (WHERE status = 'RESOLVED') as resolved_alerts
+                FROM alerts 
+                WHERE deleted_at IS NULL {time_filter};
+            """, params)
+            return cur.fetchone()
 
 @app.get("/api/v1/alerts/{identifier}")
 def get_alert(identifier: str):
@@ -296,6 +353,29 @@ def healthz():
         with conn.cursor() as cur:
             cur.execute("SELECT 1;")
             return {"status": "healthy", "database": "connected"}
+
+@app.get("/", response_class=HTMLResponse)
+@app.get("/ui", response_class=HTMLResponse)
+def serve_ui():
+    static_file = "/app/static/index.html"
+    if os.path.exists(static_file):
+        with open(static_file, "r") as f:
+            return f.read()
+    return "<h2>NOC Alert Platform Engine API is Running.</h2><p>Access the Web UI at port 8080 or mount static assets.</p>"
+
+@app.get("/style.css")
+def serve_css():
+    css_file = "/app/static/style.css"
+    if os.path.exists(css_file):
+        return FileResponse(css_file, media_type="text/css")
+    return Response(status_code=404)
+
+@app.get("/app.js")
+def serve_js():
+    js_file = "/app/static/app.js"
+    if os.path.exists(js_file):
+        return FileResponse(js_file, media_type="application/javascript")
+    return Response(status_code=404)
 
 if __name__ == "__main__":
     import uvicorn

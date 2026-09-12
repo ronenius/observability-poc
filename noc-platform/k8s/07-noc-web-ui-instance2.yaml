@@ -1,0 +1,2309 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: noc-web-ui-instance2-assets
+  namespace: noc-platform
+data:
+  nginx.conf: |
+    server {
+        listen 8083;
+        server_name _;
+
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+
+        location / {
+            root /usr/share/nginx/html;
+            index index.html;
+            try_files $uri $uri/ /index.html;
+        }
+
+        location /api/ {
+            proxy_pass http://instance2-gateway:8082/api/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_connect_timeout 5s;
+            proxy_read_timeout 30s;
+        }
+
+        location /healthz {
+            access_log off;
+            return 200 "healthy\n";
+        }
+    }
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>NOC Alert Console - Instance 2 (Secondary Replica)</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+      <link rel="stylesheet" href="style.css" />
+    </head>
+    <body class="dark-theme">
+      <div class="app-shell">
+        <!-- Top Navigation / Telemetry Header -->
+        <header class="app-header">
+          <div class="header-brand">
+            <div class="brand-badge">
+              <span class="live-dot pulse-animation"></span>
+              <span class="brand-tag">K8S CLUSTER</span>
+            </div>
+            <h1 class="brand-title">NOC Alert Console</h1>
+            <span class="brand-version">v1.2.0 • Active Outbox Engine</span>
+          </div>
+
+          <div class="header-actions">
+            <!-- Live Cluster Health -->
+            <div class="telemetry-pill" id="cluster-health-pill" title="PostgreSQL Outbox Stream Health">
+              <span class="status-indicator online"></span>
+              <span class="pill-label">Cluster Sync</span>
+              <span class="pill-value" id="sync-status">ACTIVE</span>
+            </div>
+
+            <!-- Auto-Refresh Interval Controls -->
+            <div class="refresh-controls-group">
+              <div class="countdown-container" title="Time until next auto-refresh">
+                <svg class="countdown-svg" viewBox="0 0 36 36">
+                  <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                  <path id="countdown-progress" class="circle-progress" stroke-dasharray="100, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                </svg>
+                <span id="countdown-seconds" class="countdown-text">5s</span>
+              </div>
+
+              <div class="refresh-select-wrapper">
+                <label for="refresh-interval-select" class="control-label">Interval:</label>
+                <select id="refresh-interval-select" class="custom-select">
+                  <option value="0">Off (Manual)</option>
+                  <option value="1">1s (Live)</option>
+                  <option value="2">2s</option>
+                  <option value="5" selected>5s (Default)</option>
+                  <option value="10">10s</option>
+                  <option value="30">30s</option>
+                  <option value="60">60s</option>
+                </select>
+              </div>
+
+              <button id="manual-refresh-btn" class="icon-button" title="Refresh Now (R)">
+                <svg class="icon-refresh" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <polyline points="1 20 1 14 7 14"></polyline>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <!-- KPI Metric Summary Bar -->
+        <section class="kpi-grid">
+          <div class="kpi-card kpi-critical" id="kpi-card-critical">
+            <div class="kpi-icon-wrap">
+              <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            </div>
+            <div class="kpi-content">
+              <span class="kpi-label">Critical Alerts</span>
+              <div class="kpi-value-row">
+                <span class="kpi-value" id="kpi-critical-val">0</span>
+                <span class="kpi-subtext" id="kpi-critical-sub">Active Priority 1</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="kpi-card kpi-active" id="kpi-card-active">
+            <div class="kpi-icon-wrap">
+              <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            </div>
+            <div class="kpi-content">
+              <span class="kpi-label">Active Alerts</span>
+              <div class="kpi-value-row">
+                <span class="kpi-value" id="kpi-active-val">0</span>
+                <span class="kpi-subtext">Open & In-Progress</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="kpi-card kpi-flapping" id="kpi-card-flapping">
+            <div class="kpi-icon-wrap">
+              <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </div>
+            <div class="kpi-content">
+              <span class="kpi-label">Flapping (Dampened)</span>
+              <div class="kpi-value-row">
+                <span class="kpi-value" id="kpi-flapping-val">0</span>
+                <span class="kpi-subtext">Anti-jitter active</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="kpi-card kpi-tally" id="kpi-card-tally">
+            <div class="kpi-icon-wrap">
+              <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+            </div>
+            <div class="kpi-content">
+              <span class="kpi-label">Total Deduplicated Events</span>
+              <div class="kpi-value-row">
+                <span class="kpi-value" id="kpi-tally-val">0</span>
+                <span class="kpi-subtext">Aggregated Event Volume</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Toolbar: Time Span Declared Filter & Table Controls -->
+        <section class="toolbar-section">
+          <!-- Time-Span Selector: declared by the user -->
+          <div class="timespan-container">
+            <div class="timespan-label-wrap">
+              <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              <span class="toolbar-label">Time Window:</span>
+            </div>
+            <div class="timespan-pills" id="timespan-pills">
+              <button class="pill-btn" data-minutes="5">Last 5m</button>
+              <button class="pill-btn active" data-minutes="15">Last 15m</button>
+              <button class="pill-btn" data-minutes="60">Last 1h</button>
+              <button class="pill-btn" data-minutes="360">Last 6h</button>
+              <button class="pill-btn" data-minutes="1440">Last 24h</button>
+              <button class="pill-btn" data-minutes="0">All Time</button>
+              <button class="pill-btn custom-pill" id="custom-time-btn">Custom Range...</button>
+            </div>
+          </div>
+
+          <!-- Secondary Filters & Search -->
+          <div class="filter-controls-row">
+            <!-- Live Search -->
+            <div class="search-input-wrapper">
+              <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input type="text" id="filter-search" class="search-input" placeholder="Search by Node, Identifier, Key, or Summary..." />
+              <button id="clear-search-btn" class="clear-search hidden" title="Clear Search">&times;</button>
+            </div>
+
+            <!-- Severity Filter -->
+            <div class="select-filter-group">
+              <label for="filter-severity" class="control-label">Severity:</label>
+              <select id="filter-severity" class="custom-select filter-select">
+                <option value="">All Severities</option>
+                <option value="CRITICAL">Critical</option>
+                <option value="MAJOR">Major</option>
+                <option value="WARNING">Warning</option>
+                <option value="INFO">Info</option>
+              </select>
+            </div>
+
+            <!-- Status Filter -->
+            <div class="select-filter-group">
+              <label for="filter-status" class="control-label">Status:</label>
+              <select id="filter-status" class="custom-select filter-select">
+                <option value="">All Statuses</option>
+                <option value="ACTIVE" selected>Active (Open/Ack)</option>
+                <option value="OPEN">Open</option>
+                <option value="ACKNOWLEDGED">Acknowledged</option>
+                <option value="RESOLVED">Resolved</option>
+              </select>
+            </div>
+
+            <!-- Row Limit -->
+            <div class="select-filter-group">
+              <label for="filter-limit" class="control-label">Display:</label>
+              <select id="filter-limit" class="custom-select filter-select">
+                <option value="50">50 rows</option>
+                <option value="100">100 rows</option>
+                <option value="250" selected>250 rows</option>
+                <option value="500">500 rows</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <!-- Custom Time Modal -->
+        <div id="custom-time-modal" class="modal-backdrop hidden">
+          <div class="modal-card">
+            <div class="modal-header">
+              <h3>Custom Time Span Range</h3>
+              <button id="close-modal-btn" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label for="custom-since">Start Date & Time (Since):</label>
+                <input type="datetime-local" id="custom-since" class="custom-input" />
+              </div>
+              <div class="form-group">
+                <label for="custom-until">End Date & Time (Until):</label>
+                <input type="datetime-local" id="custom-until" class="custom-input" />
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button id="cancel-custom-time" class="btn btn-secondary">Cancel</button>
+              <button id="apply-custom-time" class="btn btn-primary">Apply Custom Range</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Filter Chips / Status Banner -->
+        <div class="active-filter-bar">
+          <div class="active-filter-summary">
+            <span class="summary-badge" id="visible-count-badge">Showing 0 alerts</span>
+            <span class="active-timespan-text" id="active-timespan-indicator">Window: Last 15m</span>
+            <span class="last-refreshed-text" id="last-refreshed-time">Updated: Just now</span>
+          </div>
+          <div class="quick-view-actions">
+            <button id="reset-filters-btn" class="btn-text">Reset Filters</button>
+          </div>
+        </div>
+
+        <!-- Main Alerts Table Container -->
+        <main class="table-container">
+          <div class="table-scroll-wrapper">
+            <table class="alerts-table" id="alerts-table">
+              <thead>
+                <tr>
+                  <th class="col-severity">Severity</th>
+                  <th class="col-status">Status</th>
+                  <th class="col-identifier">Identifier / Node</th>
+                  <th class="col-key">Alert Key</th>
+                  <th class="col-summary">Summary</th>
+                  <th class="col-tally">Tally (Dedup)</th>
+                  <th class="col-last">Last Occurrence</th>
+                  <th class="col-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="alerts-tbody">
+                <!-- Rendered dynamically by app.js -->
+                <tr class="table-loading-row">
+                  <td colspan="8">
+                    <div class="loading-state">
+                      <div class="spinner"></div>
+                      <span>Querying PostgreSQL Cluster Engine...</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </main>
+
+        <!-- Slide-Over Inspector Drawer -->
+        <aside id="alert-drawer" class="drawer-overlay hidden">
+          <div class="drawer-panel">
+            <div class="drawer-header">
+              <div class="drawer-title-group">
+                <span id="drawer-severity-badge" class="badge-severity">INFO</span>
+                <h2 id="drawer-identifier" class="drawer-identifier">alert-id</h2>
+              </div>
+              <button id="drawer-close-btn" class="drawer-close" title="Close Drawer">&times;</button>
+            </div>
+
+            <div class="drawer-body">
+              <!-- Quick Status Actions -->
+              <div class="drawer-section">
+                <h4 class="drawer-section-title">Quick Operator Actions</h4>
+                <div class="drawer-action-buttons">
+                  <button id="action-ack-btn" class="btn btn-warning btn-sm">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    Acknowledge
+                  </button>
+                  <button id="action-resolve-btn" class="btn btn-success btn-sm">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    Resolve
+                  </button>
+                  <button id="action-reopen-btn" class="btn btn-info btn-sm">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                    Reopen
+                  </button>
+                  <button id="action-delete-btn" class="btn btn-danger btn-sm">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    Soft Delete
+                  </button>
+                </div>
+              </div>
+
+              <!-- Alert Details Grid -->
+              <div class="drawer-section">
+                <h4 class="drawer-section-title">Alert Overview</h4>
+                <div class="metadata-grid">
+                  <div class="meta-item">
+                    <span class="meta-label">Node / Target:</span>
+                    <span class="meta-val mono" id="drawer-node">-</span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Alert Key:</span>
+                    <span class="meta-val mono" id="drawer-alert-key">-</span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Status:</span>
+                    <span class="meta-val" id="drawer-status">-</span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Deduplicated Tally:</span>
+                    <span class="meta-val highlight" id="drawer-tally">1</span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Flapping State:</span>
+                    <span class="meta-val" id="drawer-flapping">No</span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Flap Transitions:</span>
+                    <span class="meta-val" id="drawer-flap-count">0</span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">First Seen:</span>
+                    <span class="meta-val mono" id="drawer-first-seen">-</span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Last Seen:</span>
+                    <span class="meta-val mono" id="drawer-last-seen">-</span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Schema Version:</span>
+                    <span class="meta-val mono" id="drawer-version">1</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Summary / Message -->
+              <div class="drawer-section">
+                <h4 class="drawer-section-title">Summary & Description</h4>
+                <div class="drawer-summary-box" id="drawer-summary">-</div>
+              </div>
+
+              <!-- Custom Fields / Payload JSON -->
+              <div class="drawer-section">
+                <h4 class="drawer-section-title">Custom Fields / Telemetry Payload</h4>
+                <pre class="json-viewer mono" id="drawer-custom-fields">{}</pre>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Toast Notification Container -->
+        <div id="toast-container" class="toast-container"></div>
+      </div>
+
+      <script src="app.js"></script>
+    </body>
+    </html>
+  style.css: |
+    /* ==========================================================================
+       NOC ALERT PLATFORM - MODERN DARK CONSOLE STYLESHEET
+       Aesthetics: Deep obsidian dark mode, glassmorphic panels, glowing indicators
+       ========================================================================== */
+
+    :root {
+      /* Color Palette */
+      --bg-primary: #080c14;
+      --bg-secondary: #0d1424;
+      --bg-card: rgba(17, 24, 39, 0.7);
+      --bg-card-hover: rgba(30, 41, 59, 0.85);
+      --bg-glass: rgba(15, 23, 42, 0.75);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(99, 102, 241, 0.5);
+
+      /* Text */
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --text-accent: #60a5fa;
+
+      /* Severities */
+      --sev-critical: #f43f5e;
+      --sev-critical-bg: rgba(244, 63, 94, 0.15);
+      --sev-critical-border: rgba(244, 63, 94, 0.4);
+      --sev-critical-glow: 0 0 12px rgba(244, 63, 94, 0.4);
+
+      --sev-major: #f97316;
+      --sev-major-bg: rgba(249, 115, 22, 0.15);
+      --sev-major-border: rgba(249, 115, 22, 0.4);
+
+      --sev-warning: #eab308;
+      --sev-warning-bg: rgba(234, 179, 8, 0.15);
+      --sev-warning-border: rgba(234, 179, 8, 0.4);
+
+      --sev-info: #06b6d4;
+      --sev-info-bg: rgba(6, 182, 212, 0.15);
+      --sev-info-border: rgba(6, 182, 212, 0.4);
+
+      --sev-clear: #10b981;
+      --sev-clear-bg: rgba(16, 185, 129, 0.15);
+      --sev-clear-border: rgba(16, 185, 129, 0.4);
+
+      /* Status Colors */
+      --status-open: #3b82f6;
+      --status-ack: #f59e0b;
+      --status-resolved: #10b981;
+
+      /* Typography */
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
+
+      /* Transitions */
+      --anim-fast: 0.15s ease;
+      --anim-medium: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+    }
+
+    /* Reset & Base Setup */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body.dark-theme {
+      background-color: var(--bg-primary);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.08) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(244, 63, 94, 0.05) 0px, transparent 50%),
+        radial-gradient(at 50% 0%, rgba(99, 102, 241, 0.05) 0px, transparent 60%);
+      background-attachment: fixed;
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .mono {
+      font-family: var(--font-mono);
+    }
+
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      padding: 20px 28px 40px;
+      max-width: 1720px;
+      margin: 0 auto;
+    }
+
+    /* ==========================================================================
+       Header & Navigation
+       ========================================================================== */
+
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      margin-bottom: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.36);
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 4px 10px;
+      border-radius: 9999px;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--sev-clear);
+      box-shadow: 0 0 8px var(--sev-clear);
+    }
+
+    .pulse-animation {
+      animation: pulse-glow 2s infinite;
+    }
+
+    @keyframes pulse-glow {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1.1); box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    .brand-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+    }
+
+    .brand-title {
+      font-family: var(--font-heading);
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #ffffff 30%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-version {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      border-left: 1px solid var(--border-subtle);
+      padding-left: 12px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .telemetry-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-subtle);
+      padding: 6px 14px;
+      border-radius: var(--radius-md);
+      font-size: 12px;
+    }
+
+    .status-indicator {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: var(--sev-clear);
+    }
+
+    .pill-label {
+      color: var(--text-muted);
+    }
+
+    .pill-value {
+      color: var(--sev-clear);
+      font-weight: 600;
+      font-family: var(--font-mono);
+    }
+
+    /* Auto-Refresh Group & Countdown Progress */
+    .refresh-controls-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--border-subtle);
+      padding: 4px 10px 4px 8px;
+      border-radius: var(--radius-md);
+    }
+
+    .countdown-container {
+      position: relative;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .countdown-svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+
+    .circle-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.1);
+      stroke-width: 3.5;
+    }
+
+    .circle-progress {
+      fill: none;
+      stroke: var(--text-accent);
+      stroke-width: 3.5;
+      stroke-linecap: round;
+      transition: stroke-dasharray 0.3s ease;
+    }
+
+    .countdown-text {
+      position: absolute;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-accent);
+    }
+
+    .refresh-select-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .control-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .custom-select {
+      background: rgba(30, 41, 59, 0.9);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 5px 10px;
+      font-size: 13px;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      outline: none;
+      transition: border-color var(--anim-fast);
+    }
+
+    .custom-select:focus {
+      border-color: var(--border-focus);
+    }
+
+    .icon-button {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all var(--anim-fast);
+    }
+
+    .icon-button:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .icon-button.spinning .icon-refresh {
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* ==========================================================================
+       KPI Stat Cards
+       ========================================================================== */
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .kpi-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      transition: transform var(--anim-medium), border-color var(--anim-medium), box-shadow var(--anim-medium);
+    }
+
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      background: var(--bg-card-hover);
+      border-color: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    }
+
+    .kpi-icon-wrap {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .kpi-critical .kpi-icon-wrap {
+      background: var(--sev-critical-bg);
+      color: var(--sev-critical);
+      border: 1px solid var(--sev-critical-border);
+    }
+    .kpi-critical:hover {
+      border-color: var(--sev-critical-border);
+      box-shadow: 0 4px 20px rgba(244, 63, 94, 0.15);
+    }
+
+    .kpi-active .kpi-icon-wrap {
+      background: rgba(59, 130, 246, 0.15);
+      color: #3b82f6;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+    }
+
+    .kpi-flapping .kpi-icon-wrap {
+      background: var(--sev-warning-bg);
+      color: var(--sev-warning);
+      border: 1px solid var(--sev-warning-border);
+    }
+
+    .kpi-tally .kpi-icon-wrap {
+      background: rgba(168, 85, 247, 0.15);
+      color: #c084fc;
+      border: 1px solid rgba(168, 85, 247, 0.4);
+    }
+
+    .kpi-content {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .kpi-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 2px;
+    }
+
+    .kpi-value-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .kpi-value {
+      font-family: var(--font-heading);
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.1;
+    }
+
+    .kpi-critical .kpi-value {
+      color: var(--sev-critical);
+    }
+
+    .kpi-subtext {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* ==========================================================================
+       Toolbar & Time-Span Controls
+       ========================================================================== */
+
+    .toolbar-section {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .timespan-container {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .timespan-label-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .timespan-pills {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .pill-btn {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--anim-fast);
+    }
+
+    .pill-btn:hover {
+      background: rgba(51, 65, 85, 0.8);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .pill-btn.active {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      border-color: #60a5fa;
+      color: #ffffff;
+      font-weight: 600;
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
+    }
+
+    .pill-btn.custom-pill {
+      border-style: dashed;
+    }
+
+    .pill-btn.custom-pill.active {
+      border-style: solid;
+      background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+      border-color: #a78bfa;
+      box-shadow: 0 0 12px rgba(139, 92, 246, 0.35);
+    }
+
+    /* Secondary Filters Row */
+    .filter-controls-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .search-input-wrapper {
+      position: relative;
+      flex: 1;
+      min-width: 280px;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 9px 36px 9px 38px;
+      color: var(--text-primary);
+      font-size: 13px;
+      font-family: var(--font-sans);
+      outline: none;
+      transition: all var(--anim-fast);
+    }
+
+    .search-input:focus {
+      border-color: var(--border-focus);
+      background: rgba(15, 23, 42, 0.95);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .clear-search {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 16px;
+      cursor: pointer;
+      padding: 2px 6px;
+    }
+
+    .clear-search:hover {
+      color: #fff;
+    }
+
+    .select-filter-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .filter-select {
+      padding: 8px 12px;
+      font-size: 13px;
+    }
+
+    /* Status / Active Filters Indicator */
+    .active-filter-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .active-filter-summary {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .summary-badge {
+      font-weight: 600;
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.07);
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+    }
+
+    .active-timespan-text {
+      color: var(--text-accent);
+      font-weight: 500;
+    }
+
+    .last-refreshed-text {
+      color: var(--text-muted);
+    }
+
+    .btn-text {
+      background: transparent;
+      border: none;
+      color: var(--text-accent);
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .btn-text:hover {
+      text-decoration: underline;
+    }
+
+    /* ==========================================================================
+       Alerts Data Table
+       ========================================================================== */
+
+    .table-container {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+    }
+
+    .table-scroll-wrapper {
+      max-height: calc(100vh - 410px);
+      overflow-y: auto;
+      overflow-x: auto;
+    }
+
+    .alerts-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    .alerts-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #0e1526;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      white-space: nowrap;
+    }
+
+    .alerts-table tbody tr {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      transition: background-color var(--anim-fast);
+      cursor: pointer;
+    }
+
+    .alerts-table tbody tr:hover {
+      background-color: var(--bg-card-hover);
+    }
+
+    .alerts-table td {
+      padding: 12px 16px;
+      vertical-align: middle;
+      font-size: 13px;
+    }
+
+    /* Columns */
+    .col-severity { width: 110px; }
+    .col-status { width: 120px; }
+    .col-identifier { width: 260px; }
+    .col-key { width: 160px; }
+    .col-summary { min-width: 320px; }
+    .col-tally { width: 120px; text-align: center; }
+    .col-last { width: 140px; white-space: nowrap; }
+    .col-actions { width: 90px; text-align: right; }
+
+    /* Badges */
+    .badge-severity {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .sev-badge-critical {
+      background: var(--sev-critical-bg);
+      color: #ff6b81;
+      border: 1px solid var(--sev-critical-border);
+    }
+    .sev-badge-critical .badge-dot {
+      background: var(--sev-critical);
+      box-shadow: 0 0 6px var(--sev-critical);
+    }
+
+    .sev-badge-major {
+      background: var(--sev-major-bg);
+      color: #fb923c;
+      border: 1px solid var(--sev-major-border);
+    }
+    .sev-badge-major .badge-dot {
+      background: var(--sev-major);
+    }
+
+    .sev-badge-warning {
+      background: var(--sev-warning-bg);
+      color: #facc15;
+      border: 1px solid var(--sev-warning-border);
+    }
+    .sev-badge-warning .badge-dot {
+      background: var(--sev-warning);
+    }
+
+    .sev-badge-info {
+      background: var(--sev-info-bg);
+      color: #38bdf8;
+      border: 1px solid var(--sev-info-border);
+    }
+    .sev-badge-info .badge-dot {
+      background: var(--sev-info);
+    }
+
+    .sev-badge-clear {
+      background: var(--sev-clear-bg);
+      color: #34d399;
+      border: 1px solid var(--sev-clear-border);
+    }
+    .sev-badge-clear .badge-dot {
+      background: var(--sev-clear);
+    }
+
+    /* Status Badges */
+    .badge-status {
+      display: inline-flex;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+    }
+
+    .status-open {
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    .status-acknowledged {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .status-resolved {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    /* Identifier cell */
+    .ident-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .ident-text {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #e2e8f0;
+      font-weight: 500;
+    }
+
+    .node-text {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Summary cell */
+    .summary-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .summary-text {
+      color: #cbd5e1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 480px;
+    }
+
+    .flapping-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(234, 179, 8, 0.2);
+      color: #facc15;
+      border: 1px solid rgba(234, 179, 8, 0.4);
+      padding: 2px 6px;
+      border-radius: 9999px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    /* Tally pill */
+    .tally-badge {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 12px;
+    }
+
+    .tally-badge.high-tally {
+      background: rgba(99, 102, 241, 0.25);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.4);
+    }
+
+    /* Time ago */
+    .time-cell {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .time-ago {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .time-full {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    /* Loading & Empty State */
+    .table-loading-row td {
+      padding: 60px 20px;
+      text-align: center;
+    }
+
+    .loading-state, .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--text-secondary);
+    }
+
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--text-accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* ==========================================================================
+       Slide-Over Inspector Drawer
+       ========================================================================== */
+
+    .drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 100;
+      display: flex;
+      justify-content: flex-end;
+      opacity: 1;
+      transition: opacity 0.25s ease;
+    }
+
+    .drawer-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .drawer-panel {
+      width: 540px;
+      max-width: 90vw;
+      background: #0d1424;
+      border-left: 1px solid var(--border-subtle);
+      height: 100%;
+      overflow-y: auto;
+      box-shadow: -10px 0 40px rgba(0, 0, 0, 0.6);
+      transform: translateX(0);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .drawer-overlay.hidden .drawer-panel {
+      transform: translateX(100%);
+    }
+
+    .drawer-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 24px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(15, 23, 42, 0.8);
+    }
+
+    .drawer-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .drawer-identifier {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      word-break: break-all;
+    }
+
+    .drawer-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 24px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 4px;
+    }
+
+    .drawer-close:hover {
+      color: #fff;
+    }
+
+    .drawer-body {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .drawer-section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .drawer-action-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .metadata-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+    }
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .meta-label {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .meta-val {
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+
+    .meta-val.highlight {
+      color: var(--text-accent);
+      font-weight: 600;
+    }
+
+    .drawer-summary-box {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #e2e8f0;
+    }
+
+    .json-viewer {
+      background: #060911;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      font-size: 12px;
+      color: #38bdf8;
+      max-height: 220px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* ==========================================================================
+       Buttons & Inputs
+       ========================================================================== */
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all var(--anim-fast);
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: #fff;
+      border-color: #60a5fa;
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    }
+
+    .btn-secondary {
+      background: rgba(30, 41, 59, 0.8);
+      color: var(--text-primary);
+      border-color: var(--border-subtle);
+    }
+    .btn-secondary:hover {
+      background: rgba(51, 65, 85, 0.8);
+    }
+
+    .btn-warning {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border-color: rgba(245, 158, 11, 0.4);
+    }
+    .btn-warning:hover {
+      background: rgba(245, 158, 11, 0.3);
+    }
+
+    .btn-success {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+    .btn-success:hover {
+      background: rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-info {
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      border-color: rgba(59, 130, 246, 0.4);
+    }
+    .btn-info:hover {
+      background: rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-danger {
+      background: rgba(244, 63, 94, 0.15);
+      color: #ff6b81;
+      border-color: rgba(244, 63, 94, 0.4);
+    }
+    .btn-danger:hover {
+      background: rgba(244, 63, 94, 0.3);
+    }
+
+    /* ==========================================================================
+       Modal (Custom Time Picker)
+       ========================================================================== */
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 150;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-backdrop.hidden {
+      display: none;
+    }
+
+    .modal-card {
+      width: 440px;
+      background: #0d1424;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 22px;
+      cursor: pointer;
+    }
+
+    .modal-close:hover {
+      color: #fff;
+    }
+
+    .modal-body {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .custom-input {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      color: #fff;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      outline: none;
+    }
+
+    .custom-input:focus {
+      border-color: var(--border-focus);
+    }
+
+    .modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 14px 20px;
+      border-top: 1px solid var(--border-subtle);
+      background: rgba(15, 23, 42, 0.4);
+    }
+
+    /* ==========================================================================
+       Toast Notifications
+       ========================================================================== */
+
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .toast {
+      background: #1e293b;
+      color: #fff;
+      padding: 12px 18px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      font-size: 13px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: slide-in 0.3s ease;
+    }
+
+    .toast.toast-success {
+      border-left: 4px solid var(--sev-clear);
+    }
+
+    .toast.toast-error {
+      border-left: 4px solid var(--sev-critical);
+    }
+
+    @keyframes slide-in {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 1200px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+      .app-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+      }
+      .header-actions {
+        width: 100%;
+        justify-content: space-between;
+      }
+    }
+  app.js: |
+    /**
+     * NOC Alert Platform - Real-Time Incident Console Controller
+     * Pure Vanilla JavaScript ES6+
+     */
+
+    (() => {
+      'use strict';
+
+      // --- Configuration & State ---
+      const API_BASE = '/api/v1';
+
+      const state = {
+        refreshIntervalSec: 5,     // Declared by user (0 = Off)
+        timeSpanMinutes: 15,       // Declared by user (0 = All Time)
+        customSince: null,         // ISO string if custom
+        customUntil: null,         // ISO string if custom
+        severityFilter: '',
+        statusFilter: 'ACTIVE',
+        searchQuery: '',
+        limit: 250,
+        selectedAlert: null,
+        isFetching: false,
+        timerRef: null,
+        countdownMsRemaining: 5000,
+        lastRefreshTime: new Date()
+      };
+
+      // --- DOM Elements ---
+      const el = {
+        refreshSelect: document.getElementById('refresh-interval-select'),
+        manualRefreshBtn: document.getElementById('manual-refresh-btn'),
+        countdownSvgProgress: document.getElementById('countdown-progress'),
+        countdownSeconds: document.getElementById('countdown-seconds'),
+        timespanPills: document.getElementById('timespan-pills'),
+        customTimeBtn: document.getElementById('custom-time-btn'),
+        customModal: document.getElementById('custom-time-modal'),
+        customSinceInput: document.getElementById('custom-since'),
+        customUntilInput: document.getElementById('custom-until'),
+        applyCustomTimeBtn: document.getElementById('apply-custom-time'),
+        cancelCustomTimeBtn: document.getElementById('cancel-custom-time'),
+        closeModalBtn: document.getElementById('close-modal-btn'),
+        searchInput: document.getElementById('filter-search'),
+        clearSearchBtn: document.getElementById('clear-search-btn'),
+        severitySelect: document.getElementById('filter-severity'),
+        statusSelect: document.getElementById('filter-status'),
+        limitSelect: document.getElementById('filter-limit'),
+        resetFiltersBtn: document.getElementById('reset-filters-btn'),
+        visibleCountBadge: document.getElementById('visible-count-badge'),
+        activeTimespanIndicator: document.getElementById('active-timespan-indicator'),
+        lastRefreshedTime: document.getElementById('last-refreshed-time'),
+        alertsTbody: document.getElementById('alerts-tbody'),
+        syncStatus: document.getElementById('sync-status'),
+        clusterPill: document.getElementById('cluster-health-pill'),
+
+        // KPIs
+        kpiCritical: document.getElementById('kpi-critical-val'),
+        kpiActive: document.getElementById('kpi-active-val'),
+        kpiFlapping: document.getElementById('kpi-flapping-val'),
+        kpiTally: document.getElementById('kpi-tally-val'),
+
+        // Drawer
+        drawer: document.getElementById('alert-drawer'),
+        drawerCloseBtn: document.getElementById('drawer-close-btn'),
+        drawerSevBadge: document.getElementById('drawer-severity-badge'),
+        drawerIdent: document.getElementById('drawer-identifier'),
+        drawerNode: document.getElementById('drawer-node'),
+        drawerAlertKey: document.getElementById('drawer-alert-key'),
+        drawerStatus: document.getElementById('drawer-status'),
+        drawerTally: document.getElementById('drawer-tally'),
+        drawerFlapping: document.getElementById('drawer-flapping'),
+        drawerFlapCount: document.getElementById('drawer-flap-count'),
+        drawerFirstSeen: document.getElementById('drawer-first-seen'),
+        drawerLastSeen: document.getElementById('drawer-last-seen'),
+        drawerVersion: document.getElementById('drawer-version'),
+        drawerSummary: document.getElementById('drawer-summary'),
+        drawerCustomFields: document.getElementById('drawer-custom-fields'),
+        actionAckBtn: document.getElementById('action-ack-btn'),
+        actionResolveBtn: document.getElementById('action-resolve-btn'),
+        actionReopenBtn: document.getElementById('action-reopen-btn'),
+        actionDeleteBtn: document.getElementById('action-delete-btn'),
+
+        // Toast
+        toastContainer: document.getElementById('toast-container')
+      };
+
+      // --- Helper Functions ---
+
+      function formatTimeAgo(isoString) {
+        if (!isoString) return '-';
+        const date = new Date(isoString);
+        const now = new Date();
+        const diffSec = Math.floor((now - date) / 1000);
+
+        if (diffSec < 5) return 'just now';
+        if (diffSec < 60) return `${diffSec}s ago`;
+        const diffMin = Math.floor(diffSec / 60);
+        if (diffMin < 60) return `${diffMin}m ago`;
+        const diffHours = Math.floor(diffMin / 60);
+        if (diffHours < 24) return `${diffHours}h ago`;
+        const diffDays = Math.floor(diffHours / 24);
+        return `${diffDays}d ago`;
+      }
+
+      function formatFullDate(isoString) {
+        if (!isoString) return '-';
+        try {
+          const d = new Date(isoString);
+          return d.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+        } catch {
+          return isoString;
+        }
+      }
+
+      function formatNumber(num) {
+        if (num == null) return '0';
+        return Number(num).toLocaleString();
+      }
+
+      function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `<span>${message}</span>`;
+        el.toastContainer.appendChild(toast);
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          setTimeout(() => toast.remove(), 300);
+        }, 3500);
+      }
+
+      // --- API Fetchers ---
+
+      async function fetchSummaryMetrics() {
+        try {
+          const params = new URLSearchParams();
+          if (state.timeSpanMinutes > 0 && !state.customSince) {
+            params.append('minutes', state.timeSpanMinutes);
+          }
+          const res = await fetch(`${API_BASE}/metrics/summary?${params.toString()}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+
+          el.kpiCritical.textContent = formatNumber(data.critical_alerts);
+          el.kpiActive.textContent = formatNumber(data.active_alerts);
+          el.kpiFlapping.textContent = formatNumber(data.flapping_alerts);
+          el.kpiTally.textContent = formatNumber(data.total_events_tally);
+
+          el.syncStatus.textContent = 'ONLINE';
+          el.syncStatus.style.color = 'var(--sev-clear)';
+        } catch (err) {
+          console.warn('Metrics summary fetch error:', err);
+          el.syncStatus.textContent = 'DEGRADED';
+          el.syncStatus.style.color = 'var(--sev-major)';
+        }
+      }
+
+      async function fetchAlerts() {
+        if (state.isFetching) return;
+        state.isFetching = true;
+        el.manualRefreshBtn.classList.add('spinning');
+
+        try {
+          const params = new URLSearchParams();
+          if (state.statusFilter) params.append('status', state.statusFilter);
+          if (state.severityFilter) params.append('severity', state.severityFilter);
+          if (state.searchQuery) params.append('search', state.searchQuery);
+          params.append('limit', state.limit);
+
+          if (state.customSince) {
+            params.append('since', new Date(state.customSince).toISOString());
+            if (state.customUntil) {
+              params.append('until', new Date(state.customUntil).toISOString());
+            }
+          } else if (state.timeSpanMinutes > 0) {
+            params.append('minutes', state.timeSpanMinutes);
+          }
+
+          const res = await fetch(`${API_BASE}/alerts?${params.toString()}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const alerts = await res.json();
+
+          renderAlertsTable(alerts);
+          state.lastRefreshTime = new Date();
+          el.lastRefreshedTime.textContent = `Updated: ${state.lastRefreshTime.toLocaleTimeString()}`;
+        } catch (err) {
+          console.error('Failed to fetch alerts:', err);
+          showToast(`Error fetching alerts: ${err.message}`, 'error');
+        } finally {
+          state.isFetching = false;
+          el.manualRefreshBtn.classList.remove('spinning');
+        }
+      }
+
+      // --- Rendering Functions ---
+
+      function getSeverityClass(sev) {
+        switch ((sev || '').toUpperCase()) {
+          case 'CRITICAL': return 'sev-badge-critical';
+          case 'MAJOR': return 'sev-badge-major';
+          case 'WARNING': return 'sev-badge-warning';
+          case 'CLEAR': return 'sev-badge-clear';
+          default: return 'sev-badge-info';
+        }
+      }
+
+      function getStatusClass(st) {
+        switch ((st || '').toUpperCase()) {
+          case 'OPEN': return 'status-open';
+          case 'ACKNOWLEDGED': return 'status-acknowledged';
+          case 'RESOLVED': return 'status-resolved';
+          default: return '';
+        }
+      }
+
+      function renderAlertsTable(alerts) {
+        el.visibleCountBadge.textContent = `Showing ${alerts.length} alerts`;
+
+        if (!alerts || alerts.length === 0) {
+          el.alertsTbody.innerHTML = `
+            <tr class="table-loading-row">
+              <td colspan="8">
+                <div class="empty-state">
+                  <svg viewBox="0 0 24 24" width="36" height="36" stroke="currentColor" stroke-width="1.5" fill="none">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M8 12h8"></path>
+                  </svg>
+                  <span>No alerts matching selected time window and filter criteria.</span>
+                </div>
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        const fragment = document.createDocumentFragment();
+
+        alerts.forEach(alert => {
+          const tr = document.createElement('tr');
+          tr.dataset.identifier = alert.identifier;
+
+          const sevClass = getSeverityClass(alert.severity);
+          const statusClass = getStatusClass(alert.status);
+          const isFlapping = alert.is_flapping;
+          const tallyVal = alert.tally || 1;
+          const isHighTally = tallyVal > 5;
+
+          tr.innerHTML = `
+            <td>
+              <span class="badge-severity ${sevClass}">
+                <span class="badge-dot"></span>
+                ${escapeHtml(alert.severity)}
+              </span>
+            </td>
+            <td>
+              <span class="badge-status ${statusClass}">
+                ${escapeHtml(alert.status)}
+              </span>
+            </td>
+            <td>
+              <div class="ident-cell">
+                <span class="ident-text" title="${escapeHtml(alert.identifier)}">${escapeHtml(alert.identifier)}</span>
+                <span class="node-text">${escapeHtml(alert.node)}</span>
+              </div>
+            </td>
+            <td>
+              <span class="mono" style="color: #93c5fd; font-size: 12px;">${escapeHtml(alert.alert_key)}</span>
+            </td>
+            <td>
+              <div class="summary-cell">
+                <span class="summary-text" title="${escapeHtml(alert.summary || '')}">${escapeHtml(alert.summary || '-')}</span>
+                ${isFlapping ? '<span class="flapping-pill" title="Flapping detected: State jitter dampening active">⚡ Flapping</span>' : ''}
+              </div>
+            </td>
+            <td style="text-align: center;">
+              <span class="tally-badge ${isHighTally ? 'high-tally' : ''}" title="${tallyVal} raw incoming events deduplicated into this single record">
+                ${formatNumber(tallyVal)}x
+              </span>
+            </td>
+            <td>
+              <div class="time-cell">
+                <span class="time-ago">${formatTimeAgo(alert.last_occurrence)}</span>
+                <span class="time-full">${formatFullDate(alert.last_occurrence)}</span>
+              </div>
+            </td>
+            <td style="text-align: right;">
+              <button class="btn btn-secondary btn-sm inspect-btn" data-id="${escapeHtml(alert.identifier)}">Inspect</button>
+            </td>
+          `;
+
+          tr.addEventListener('click', (e) => {
+            openAlertDrawer(alert);
+          });
+
+          fragment.appendChild(tr);
+        });
+
+        el.alertsTbody.innerHTML = '';
+        el.alertsTbody.appendChild(fragment);
+      }
+
+      function escapeHtml(text) {
+        if (!text) return '';
+        return String(text)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      // --- Inspector Drawer ---
+
+      function openAlertDrawer(alert) {
+        state.selectedAlert = alert;
+        el.drawerIdent.textContent = alert.identifier;
+        el.drawerNode.textContent = alert.node;
+        el.drawerAlertKey.textContent = alert.alert_key;
+        el.drawerStatus.textContent = alert.status;
+        el.drawerTally.textContent = `${alert.tally || 1} deduplicated events`;
+        el.drawerFlapping.textContent = alert.is_flapping ? 'YES (Active)' : 'No';
+        el.drawerFlapCount.textContent = alert.flap_count || 0;
+        el.drawerFirstSeen.textContent = formatFullDate(alert.first_occurrence);
+        el.drawerLastSeen.textContent = formatFullDate(alert.last_occurrence);
+        el.drawerVersion.textContent = `v${alert.version}`;
+        el.drawerSummary.textContent = alert.summary || 'No summary text provided.';
+
+        // Severity badge styling
+        el.drawerSevBadge.className = `badge-severity ${getSeverityClass(alert.severity)}`;
+        el.drawerSevBadge.innerHTML = `<span class="badge-dot"></span>${escapeHtml(alert.severity)}`;
+
+        // JSON Payload
+        try {
+          const custom = alert.custom_fields || {};
+          el.drawerCustomFields.textContent = JSON.stringify(custom, null, 2);
+        } catch {
+          el.drawerCustomFields.textContent = '{}';
+        }
+
+        el.drawer.classList.remove('hidden');
+      }
+
+      function closeAlertDrawer() {
+        el.drawer.classList.add('hidden');
+        state.selectedAlert = null;
+      }
+
+      async function patchSelectedAlert(newStatus) {
+        if (!state.selectedAlert) return;
+        const id = state.selectedAlert.identifier;
+        try {
+          const res = await fetch(`${API_BASE}/alerts/${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const updated = await res.json();
+          showToast(`Alert ${id} marked as ${newStatus}`, 'success');
+          openAlertDrawer(updated);
+          fetchAlerts();
+          fetchSummaryMetrics();
+        } catch (err) {
+          showToast(`Action failed: ${err.message}`, 'error');
+        }
+      }
+
+      async function deleteSelectedAlert() {
+        if (!state.selectedAlert) return;
+        const id = state.selectedAlert.identifier;
+        if (!confirm(`Are you sure you want to soft-delete (PURGE) alert ${id}?`)) return;
+
+        try {
+          const res = await fetch(`${API_BASE}/alerts/${encodeURIComponent(id)}`, {
+            method: 'DELETE'
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          showToast(`Alert ${id} purged`, 'success');
+          closeAlertDrawer();
+          fetchAlerts();
+          fetchSummaryMetrics();
+        } catch (err) {
+          showToast(`Purge failed: ${err.message}`, 'error');
+        }
+      }
+
+      // --- Auto-Refresh Countdown Engine ---
+
+      function restartCountdownTimer() {
+        if (state.timerRef) {
+          clearInterval(state.timerRef);
+          state.timerRef = null;
+        }
+
+        if (state.refreshIntervalSec === 0) {
+          el.countdownSeconds.textContent = 'Off';
+          el.countdownSvgProgress.setAttribute('stroke-dasharray', '0, 100');
+          return;
+        }
+
+        state.countdownMsRemaining = state.refreshIntervalSec * 1000;
+        const totalMs = state.refreshIntervalSec * 1000;
+
+        state.timerRef = setInterval(() => {
+          state.countdownMsRemaining -= 100;
+
+          if (state.countdownMsRemaining <= 0) {
+            state.countdownMsRemaining = totalMs;
+            triggerFullRefresh();
+          }
+
+          // Update circular countdown progress ring
+          const progressPercent = Math.max(0, (state.countdownMsRemaining / totalMs) * 100);
+          el.countdownSvgProgress.setAttribute('stroke-dasharray', `${progressPercent.toFixed(1)}, 100`);
+
+          const remainingSec = Math.ceil(state.countdownMsRemaining / 1000);
+          el.countdownSeconds.textContent = `${remainingSec}s`;
+        }, 100);
+      }
+
+      function triggerFullRefresh() {
+        fetchAlerts();
+        fetchSummaryMetrics();
+      }
+
+      // --- Event Listeners Setup ---
+
+      function setupEventListeners() {
+        // Refresh interval declared by the user
+        el.refreshSelect.addEventListener('change', (e) => {
+          state.refreshIntervalSec = parseInt(e.target.value, 10);
+          restartCountdownTimer();
+          showToast(`Auto-refresh interval set to: ${e.target.options[e.target.selectedIndex].text}`, 'info');
+        });
+
+        // Manual Refresh Button
+        el.manualRefreshBtn.addEventListener('click', () => {
+          triggerFullRefresh();
+          state.countdownMsRemaining = state.refreshIntervalSec * 1000;
+        });
+
+        // Keyboard shortcut 'R' for refresh
+        window.addEventListener('keydown', (e) => {
+          if (e.key.toLowerCase() === 'r' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+            triggerFullRefresh();
+          }
+          if (e.key === 'Escape') {
+            closeAlertDrawer();
+            el.customModal.classList.add('hidden');
+          }
+        });
+
+        // Time-Span preset pills declared by the user
+        el.timespanPills.addEventListener('click', (e) => {
+          const btn = e.target.closest('.pill-btn');
+          if (!btn || btn.id === 'custom-time-btn') return;
+
+          document.querySelectorAll('#timespan-pills .pill-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+
+          state.timeSpanMinutes = parseInt(btn.dataset.minutes, 10);
+          state.customSince = null;
+          state.customUntil = null;
+
+          const label = btn.textContent.trim();
+          el.activeTimespanIndicator.textContent = `Window: ${label}`;
+
+          triggerFullRefresh();
+          showToast(`Time window filtered to: ${label}`, 'info');
+        });
+
+        // Custom Time-Span Modal
+        el.customTimeBtn.addEventListener('click', () => {
+          el.customModal.classList.remove('hidden');
+        });
+
+        el.closeModalBtn.addEventListener('click', () => el.customModal.classList.add('hidden'));
+        el.cancelCustomTimeBtn.addEventListener('click', () => el.customModal.classList.add('hidden'));
+
+        el.applyCustomTimeBtn.addEventListener('click', () => {
+          const sinceVal = el.customSinceInput.value;
+          const untilVal = el.customUntilInput.value;
+
+          if (!sinceVal) {
+            alert('Please specify at least a Start Date & Time.');
+            return;
+          }
+
+          state.customSince = sinceVal;
+          state.customUntil = untilVal || null;
+          state.timeSpanMinutes = 0;
+
+          document.querySelectorAll('#timespan-pills .pill-btn').forEach(b => b.classList.remove('active'));
+          el.customTimeBtn.classList.add('active');
+
+          const startText = new Date(sinceVal).toLocaleTimeString();
+          const endText = untilVal ? new Date(untilVal).toLocaleTimeString() : 'Now';
+          el.activeTimespanIndicator.textContent = `Custom: ${startText} → ${endText}`;
+
+          el.customModal.classList.add('hidden');
+          triggerFullRefresh();
+          showToast(`Applied custom date range`, 'info');
+        });
+
+        // Search filter with debounce
+        let searchDebounce = null;
+        el.searchInput.addEventListener('input', (e) => {
+          const val = e.target.value.trim();
+          el.clearSearchBtn.classList.toggle('hidden', val.length === 0);
+
+          clearTimeout(searchDebounce);
+          searchDebounce = setTimeout(() => {
+            state.searchQuery = val;
+            fetchAlerts();
+          }, 300);
+        });
+
+        el.clearSearchBtn.addEventListener('click', () => {
+          el.searchInput.value = '';
+          state.searchQuery = '';
+          el.clearSearchBtn.classList.add('hidden');
+          fetchAlerts();
+        });
+
+        // Severity & Status dropdowns
+        el.severitySelect.addEventListener('change', (e) => {
+          state.severityFilter = e.target.value;
+          fetchAlerts();
+        });
+
+        el.statusSelect.addEventListener('change', (e) => {
+          state.statusFilter = e.target.value;
+          fetchAlerts();
+        });
+
+        el.limitSelect.addEventListener('change', (e) => {
+          state.limit = parseInt(e.target.value, 10);
+          fetchAlerts();
+        });
+
+        // Reset filters
+        el.resetFiltersBtn.addEventListener('click', () => {
+          state.severityFilter = '';
+          state.statusFilter = 'ACTIVE';
+          state.searchQuery = '';
+          state.timeSpanMinutes = 15;
+          state.customSince = null;
+          state.customUntil = null;
+
+          el.severitySelect.value = '';
+          el.statusSelect.value = 'ACTIVE';
+          el.searchInput.value = '';
+          el.clearSearchBtn.classList.add('hidden');
+
+          document.querySelectorAll('#timespan-pills .pill-btn').forEach(b => b.classList.remove('active'));
+          const defaultPill = document.querySelector('#timespan-pills [data-minutes="15"]');
+          if (defaultPill) defaultPill.classList.add('active');
+          el.activeTimespanIndicator.textContent = 'Window: Last 15m';
+
+          triggerFullRefresh();
+          showToast('Filters reset to default', 'info');
+        });
+
+        // Drawer actions
+        el.drawerCloseBtn.addEventListener('click', closeAlertDrawer);
+        el.actionAckBtn.addEventListener('click', () => patchSelectedAlert('ACKNOWLEDGED'));
+        el.actionResolveBtn.addEventListener('click', () => patchSelectedAlert('RESOLVED'));
+        el.actionReopenBtn.addEventListener('click', () => patchSelectedAlert('OPEN'));
+        el.actionDeleteBtn.addEventListener('click', deleteSelectedAlert);
+
+        // Close drawer when clicking outside panel
+        el.drawer.addEventListener('click', (e) => {
+          if (e.target === el.drawer) closeAlertDrawer();
+        });
+      }
+
+      // --- Initialize Application ---
+      function init() {
+        setupEventListeners();
+        triggerFullRefresh();
+        restartCountdownTimer();
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: noc-web-ui-instance2
+  namespace: noc-platform
+  labels:
+    app: noc-web-ui-instance2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: noc-web-ui-instance2
+  template:
+    metadata:
+      labels:
+        app: noc-web-ui-instance2
+    spec:
+      containers:
+      - name: web
+        image: nginx:alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8083
+          name: http
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        volumeMounts:
+        - name: assets
+          mountPath: /usr/share/nginx/html/index.html
+          subPath: index.html
+        - name: assets
+          mountPath: /usr/share/nginx/html/style.css
+          subPath: style.css
+        - name: assets
+          mountPath: /usr/share/nginx/html/app.js
+          subPath: app.js
+        - name: assets
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: nginx.conf
+      volumes:
+      - name: assets
+        configMap:
+          name: noc-web-ui-instance2-assets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: noc-web-ui-instance2
+  namespace: noc-platform
+spec:
+  type: ClusterIP
+  selector:
+    app: noc-web-ui-instance2
+  ports:
+  - port: 8083
+    targetPort: 8083
+    name: http

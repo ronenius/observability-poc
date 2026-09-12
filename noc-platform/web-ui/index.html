@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NOC Observability & Alert Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="dark-theme">
+  <div class="app-shell">
+    <!-- Top Navigation / Telemetry Header -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="brand-badge">
+          <span class="live-dot pulse-animation"></span>
+          <span class="brand-tag">K8S CLUSTER</span>
+        </div>
+        <h1 class="brand-title">NOC Alert Console</h1>
+        <span class="brand-version">v1.2.0 • Active Outbox Engine</span>
+      </div>
+
+      <div class="header-actions">
+        <!-- Live Cluster Health -->
+        <div class="telemetry-pill" id="cluster-health-pill" title="PostgreSQL Outbox Stream Health">
+          <span class="status-indicator online"></span>
+          <span class="pill-label">Cluster Sync</span>
+          <span class="pill-value" id="sync-status">ACTIVE</span>
+        </div>
+
+        <!-- Auto-Refresh Interval Controls -->
+        <div class="refresh-controls-group">
+          <div class="countdown-container" title="Time until next auto-refresh">
+            <svg class="countdown-svg" viewBox="0 0 36 36">
+              <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <path id="countdown-progress" class="circle-progress" stroke-dasharray="100, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+            </svg>
+            <span id="countdown-seconds" class="countdown-text">5s</span>
+          </div>
+
+          <div class="refresh-select-wrapper">
+            <label for="refresh-interval-select" class="control-label">Interval:</label>
+            <select id="refresh-interval-select" class="custom-select">
+              <option value="0">Off (Manual)</option>
+              <option value="1">1s (Live)</option>
+              <option value="2">2s</option>
+              <option value="5" selected>5s (Default)</option>
+              <option value="10">10s</option>
+              <option value="30">30s</option>
+              <option value="60">60s</option>
+            </select>
+          </div>
+
+          <button id="manual-refresh-btn" class="icon-button" title="Refresh Now (R)">
+            <svg class="icon-refresh" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- KPI Metric Summary Bar -->
+    <section class="kpi-grid">
+      <div class="kpi-card kpi-critical" id="kpi-card-critical">
+        <div class="kpi-icon-wrap">
+          <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        </div>
+        <div class="kpi-content">
+          <span class="kpi-label">Critical Alerts</span>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-critical-val">0</span>
+            <span class="kpi-subtext" id="kpi-critical-sub">Active Priority 1</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-active" id="kpi-card-active">
+        <div class="kpi-icon-wrap">
+          <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        </div>
+        <div class="kpi-content">
+          <span class="kpi-label">Active Alerts</span>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-active-val">0</span>
+            <span class="kpi-subtext">Open & In-Progress</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-flapping" id="kpi-card-flapping">
+        <div class="kpi-icon-wrap">
+          <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        </div>
+        <div class="kpi-content">
+          <span class="kpi-label">Flapping (Dampened)</span>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-flapping-val">0</span>
+            <span class="kpi-subtext">Anti-jitter active</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-tally" id="kpi-card-tally">
+        <div class="kpi-icon-wrap">
+          <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+        </div>
+        <div class="kpi-content">
+          <span class="kpi-label">Total Deduplicated Events</span>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-tally-val">0</span>
+            <span class="kpi-subtext">Aggregated Event Volume</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Toolbar: Time Span Declared Filter & Table Controls -->
+    <section class="toolbar-section">
+      <!-- Time-Span Selector: declared by the user -->
+      <div class="timespan-container">
+        <div class="timespan-label-wrap">
+          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span class="toolbar-label">Time Window:</span>
+        </div>
+        <div class="timespan-pills" id="timespan-pills">
+          <button class="pill-btn" data-minutes="5">Last 5m</button>
+          <button class="pill-btn active" data-minutes="15">Last 15m</button>
+          <button class="pill-btn" data-minutes="60">Last 1h</button>
+          <button class="pill-btn" data-minutes="360">Last 6h</button>
+          <button class="pill-btn" data-minutes="1440">Last 24h</button>
+          <button class="pill-btn" data-minutes="0">All Time</button>
+          <button class="pill-btn custom-pill" id="custom-time-btn">Custom Range...</button>
+        </div>
+      </div>
+
+      <!-- Secondary Filters & Search -->
+      <div class="filter-controls-row">
+        <!-- Live Search -->
+        <div class="search-input-wrapper">
+          <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="filter-search" class="search-input" placeholder="Search by Node, Identifier, Key, or Summary..." />
+          <button id="clear-search-btn" class="clear-search hidden" title="Clear Search">&times;</button>
+        </div>
+
+        <!-- Severity Filter -->
+        <div class="select-filter-group">
+          <label for="filter-severity" class="control-label">Severity:</label>
+          <select id="filter-severity" class="custom-select filter-select">
+            <option value="">All Severities</option>
+            <option value="CRITICAL">Critical</option>
+            <option value="MAJOR">Major</option>
+            <option value="WARNING">Warning</option>
+            <option value="INFO">Info</option>
+          </select>
+        </div>
+
+        <!-- Status Filter -->
+        <div class="select-filter-group">
+          <label for="filter-status" class="control-label">Status:</label>
+          <select id="filter-status" class="custom-select filter-select">
+            <option value="">All Statuses</option>
+            <option value="ACTIVE" selected>Active (Open/Ack)</option>
+            <option value="OPEN">Open</option>
+            <option value="ACKNOWLEDGED">Acknowledged</option>
+            <option value="RESOLVED">Resolved</option>
+          </select>
+        </div>
+
+        <!-- Row Limit -->
+        <div class="select-filter-group">
+          <label for="filter-limit" class="control-label">Display:</label>
+          <select id="filter-limit" class="custom-select filter-select">
+            <option value="50">50 rows</option>
+            <option value="100">100 rows</option>
+            <option value="250" selected>250 rows</option>
+            <option value="500">500 rows</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Custom Time Modal -->
+    <div id="custom-time-modal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Custom Time Span Range</h3>
+          <button id="close-modal-btn" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="custom-since">Start Date & Time (Since):</label>
+            <input type="datetime-local" id="custom-since" class="custom-input" />
+          </div>
+          <div class="form-group">
+            <label for="custom-until">End Date & Time (Until):</label>
+            <input type="datetime-local" id="custom-until" class="custom-input" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="cancel-custom-time" class="btn btn-secondary">Cancel</button>
+          <button id="apply-custom-time" class="btn btn-primary">Apply Custom Range</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Filter Chips / Status Banner -->
+    <div class="active-filter-bar">
+      <div class="active-filter-summary">
+        <span class="summary-badge" id="visible-count-badge">Showing 0 alerts</span>
+        <span class="active-timespan-text" id="active-timespan-indicator">Window: Last 15m</span>
+        <span class="last-refreshed-text" id="last-refreshed-time">Updated: Just now</span>
+      </div>
+      <div class="quick-view-actions">
+        <button id="reset-filters-btn" class="btn-text">Reset Filters</button>
+      </div>
+    </div>
+
+    <!-- Main Alerts Table Container -->
+    <main class="table-container">
+      <div class="table-scroll-wrapper">
+        <table class="alerts-table" id="alerts-table">
+          <thead>
+            <tr>
+              <th class="col-severity">Severity</th>
+              <th class="col-status">Status</th>
+              <th class="col-identifier">Identifier / Node</th>
+              <th class="col-key">Alert Key</th>
+              <th class="col-summary">Summary</th>
+              <th class="col-tally">Tally (Dedup)</th>
+              <th class="col-last">Last Occurrence</th>
+              <th class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="alerts-tbody">
+            <!-- Rendered dynamically by app.js -->
+            <tr class="table-loading-row">
+              <td colspan="8">
+                <div class="loading-state">
+                  <div class="spinner"></div>
+                  <span>Querying PostgreSQL Cluster Engine...</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+
+    <!-- Slide-Over Inspector Drawer -->
+    <aside id="alert-drawer" class="drawer-overlay hidden">
+      <div class="drawer-panel">
+        <div class="drawer-header">
+          <div class="drawer-title-group">
+            <span id="drawer-severity-badge" class="badge-severity">INFO</span>
+            <h2 id="drawer-identifier" class="drawer-identifier">alert-id</h2>
+          </div>
+          <button id="drawer-close-btn" class="drawer-close" title="Close Drawer">&times;</button>
+        </div>
+
+        <div class="drawer-body">
+          <!-- Quick Status Actions -->
+          <div class="drawer-section">
+            <h4 class="drawer-section-title">Quick Operator Actions</h4>
+            <div class="drawer-action-buttons">
+              <button id="action-ack-btn" class="btn btn-warning btn-sm">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Acknowledge
+              </button>
+              <button id="action-resolve-btn" class="btn btn-success btn-sm">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                Resolve
+              </button>
+              <button id="action-reopen-btn" class="btn btn-info btn-sm">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                Reopen
+              </button>
+              <button id="action-delete-btn" class="btn btn-danger btn-sm">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                Soft Delete
+              </button>
+            </div>
+          </div>
+
+          <!-- Alert Details Grid -->
+          <div class="drawer-section">
+            <h4 class="drawer-section-title">Alert Overview</h4>
+            <div class="metadata-grid">
+              <div class="meta-item">
+                <span class="meta-label">Node / Target:</span>
+                <span class="meta-val mono" id="drawer-node">-</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Alert Key:</span>
+                <span class="meta-val mono" id="drawer-alert-key">-</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Status:</span>
+                <span class="meta-val" id="drawer-status">-</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Deduplicated Tally:</span>
+                <span class="meta-val highlight" id="drawer-tally">1</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Flapping State:</span>
+                <span class="meta-val" id="drawer-flapping">No</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Flap Transitions:</span>
+                <span class="meta-val" id="drawer-flap-count">0</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">First Seen:</span>
+                <span class="meta-val mono" id="drawer-first-seen">-</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Last Seen:</span>
+                <span class="meta-val mono" id="drawer-last-seen">-</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Schema Version:</span>
+                <span class="meta-val mono" id="drawer-version">1</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Summary / Message -->
+          <div class="drawer-section">
+            <h4 class="drawer-section-title">Summary & Description</h4>
+            <div class="drawer-summary-box" id="drawer-summary">-</div>
+          </div>
+
+          <!-- Custom Fields / Payload JSON -->
+          <div class="drawer-section">
+            <h4 class="drawer-section-title">Custom Fields / Telemetry Payload</h4>
+            <pre class="json-viewer mono" id="drawer-custom-fields">{}</pre>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

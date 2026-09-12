@@ -10,39 +10,64 @@ sources:
     address: 0.0.0.0:9000
     encoding: json
 
-  syslog_in:
+  syslog_tcp:
     type: syslog
     address: 0.0.0.0:5140
     mode: tcp
+
+  syslog_udp:
+    type: syslog
+    address: 0.0.0.0:5140
+    mode: udp
 
 transforms:
   process_alerts:
     type: remap
     inputs:
       - webhook_in
-      - syslog_in
+      - syslog_tcp
+      - syslog_udp
     source: |
       # 1. In-flight Filter: Drop DEBUG, noisy trace events, and test environments immediately!
-      sev = upcase(string(.severity || .level || "INFO") ?? "INFO")
+      sev_raw = downcase(string(.severity || .level || "info") ?? "info")
       env = downcase(string(.environment || "prod") ?? "prod")
-      if sev == "DEBUG" || env == "test" || env == "dev" {
+      if sev_raw == "debug" || env == "test" || env == "dev" {
         abort
       }
 
+      # Map syslog and event severities to NOC standards
+      if sev_raw == "emergency" || sev_raw == "alert" || sev_raw == "critical" || sev_raw == "crit" {
+        .severity = "CRITICAL"
+      } else if sev_raw == "error" || sev_raw == "err" || sev_raw == "major" {
+        .severity = "MAJOR"
+      } else if sev_raw == "warning" || sev_raw == "warn" {
+        .severity = "WARNING"
+      } else if sev_raw == "clear" || sev_raw == "ok" {
+        .severity = "CLEAR"
+      } else if sev_raw == "notice" || sev_raw == "info" || sev_raw == "informational" {
+        .severity = "INFO"
+      } else {
+        .severity = upcase(sev_raw)
+      }
+
       # 2. Normalize Core Netcool Fields
-      .severity = sev
       .node = string(.node || .host || .hostname || "unknown-node") ?? "unknown-node"
-      .alert_key = string(.alert_key || .event || .check || "default-check") ?? "default-check"
+      .alert_key = string(.alert_key || .event || .check || .appname || "syslog-event") ?? "syslog-event"
       .summary = string(.summary || .message || .text || "No summary provided") ?? "No summary provided"
       
       # 3. Deterministic Unique Identifier (Node + Alert Key)
       .identifier = .node + ":" + .alert_key
 
+      # 4. Pack Arbitrary Attributes into Custom Fields Bag
       custom = {}
       if exists(.ip) { custom.ip = .ip }
       if exists(.datacenter) { custom.datacenter = .datacenter }
       if exists(.cluster) { custom.cluster = .cluster }
       if exists(.source) { custom.source = .source }
+      if exists(.facility) { custom.facility = .facility }
+      if exists(.appname) { custom.appname = .appname }
+      if exists(.procid) { custom.procid = .procid }
+      if exists(.msgid) { custom.msgid = .msgid }
       if exists(.tags) { custom.tags = .tags }
       if exists(.custom_fields) && is_object(.custom_fields) {
         custom = merge(custom, object!(.custom_fields))
@@ -59,5 +84,5 @@ sinks:
     encoding:
       codec: json
     batch:
-      timeout_secs: 0.1
-      max_events: 10
+      timeout_secs: 0.05
+      max_events: 50

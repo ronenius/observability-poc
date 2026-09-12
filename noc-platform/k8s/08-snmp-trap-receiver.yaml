@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: snmp-trap-receiver
+  namespace: noc-platform
+  labels:
+    app: snmp-trap-receiver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: snmp-trap-receiver
+  template:
+    metadata:
+      labels:
+        app: snmp-trap-receiver
+    spec:
+      containers:
+      - name: snmptrapd
+        image: noc-snmptrapd:latest
+        imagePullPolicy: IfNotPresent
+        command: ["/usr/sbin/snmptrapd", "-f", "-Lo", "-C", "-c", "/etc/snmp/snmptrapd.conf", "udp:162", "udp:1162"]
+        env:
+        - name: INGEST_URL
+          value: "http://instance1-api:8081/api/v1/ingest"
+        ports:
+        - containerPort: 162
+          protocol: UDP
+          name: snmp-trap
+        - containerPort: 1162
+          protocol: UDP
+          name: snmp-trap-alt
+        securityContext:
+          capabilities:
+            add:
+            - NET_BIND_SERVICE
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: snmp-trap-receiver
+  namespace: noc-platform
+spec:
+  type: ClusterIP
+  selector:
+    app: snmp-trap-receiver
+  ports:
+  - port: 162
+    targetPort: 162
+    protocol: UDP
+    name: snmp-trap
+  - port: 1162
+    targetPort: 1162
+    protocol: UDP
+    name: snmp-trap-alt
