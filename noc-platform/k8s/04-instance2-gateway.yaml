@@ -15,6 +15,8 @@ data:
 
     import os
     import json
+    import time
+    import threading
     import logging
     from datetime import datetime, timezone
     from typing import Optional, Dict, Any, List, Union
@@ -343,6 +345,102 @@ data:
         if os.path.exists(js_file):
             return FileResponse(js_file, media_type="application/javascript")
         return Response(status_code=404)
+
+    # -------------------------------------------------------------
+    # Meta-Monitoring Watchdog (Issue 19: "Who Monitors the Monitor?")
+    # -------------------------------------------------------------
+
+    WATCHDOG_TIMEOUT_SEC = 90.0
+    PIPELINE_FAILURE_IDENTIFIER = "system:replication_link_failure"
+
+    def watchdog_worker():
+        """
+        Issue 19: Meta-Monitoring Watchdog thread on Instance 2.
+        Checks if replication events or synthetic heartbeats have been received within WATCHDOG_TIMEOUT_SEC.
+        If no events have been received for > WATCHDOG_TIMEOUT_SEC:
+          Raises a local CRITICAL alert in Instance 2 alerts table.
+        When events resume:
+          Resolves the CRITICAL alert to CLEAR.
+        """
+        logging.info(f"🐕 [WATCHDOG] Starting Meta-Monitoring Watchdog (Timeout: {WATCHDOG_TIMEOUT_SEC}s)...")
+        time.sleep(20.0)  # Initial grace period on boot
+
+        while True:
+            try:
+                time.sleep(15.0)
+                now = datetime.now(timezone.utc)
+                with get_db() as conn:
+                    with conn.cursor() as cur:
+                        # 1. Check the most recent event received by Instance 2
+                        cur.execute("""
+                            SELECT received_at 
+                            FROM alerts_replication_log 
+                            ORDER BY id DESC 
+                            LIMIT 1;
+                        """)
+                        row = cur.fetchone()
+
+                        if not row:
+                            cur.execute("SELECT MAX(replicated_at) as last_rep FROM alerts;")
+                            r2 = cur.fetchone()
+                            last_event_time = r2["last_rep"] if r2 and r2["last_rep"] else None
+                        else:
+                            last_event_time = row["received_at"]
+
+                        if last_event_time is None:
+                            continue
+
+                        # 2. Check current status of replication failure alert
+                        cur.execute("SELECT severity, status FROM alerts WHERE identifier = %s;", (PIPELINE_FAILURE_IDENTIFIER,))
+                        active_failure = cur.fetchone()
+
+                        time_since_last = (now - last_event_time).total_seconds()
+
+                        if time_since_last > WATCHDOG_TIMEOUT_SEC:
+                            # Alert condition: link silence
+                            if not active_failure or active_failure["status"] != "OPEN":
+                                logging.error(f"🚨 [WATCHDOG ALERT] No replication events for {time_since_last:.1f}s! Raising CRITICAL alert.")
+                                cur.execute("""
+                                    INSERT INTO alerts (
+                                        identifier, node, alert_key, severity, status, summary,
+                                        tally, version, first_occurrence, last_occurrence, last_state_change,
+                                        custom_fields, replicated_at
+                                    ) VALUES (
+                                        %s, 'secondary-gateway', 'replication_link_status',
+                                        'CRITICAL', 'OPEN', '🚨 Replication Pipeline from Instance 1 Disconnected! No events received for >90s.',
+                                        1, 1, %s, %s, %s,
+                                        '{"source": "meta-monitoring-watchdog", "timeout_sec": 90}'::jsonb, %s
+                                    )
+                                    ON CONFLICT (identifier) DO UPDATE SET
+                                        severity = 'CRITICAL',
+                                        status = 'OPEN',
+                                        summary = '🚨 Replication Pipeline from Instance 1 Disconnected! No events received for >90s.',
+                                        tally = alerts.tally + 1,
+                                        version = alerts.version + 1,
+                                        last_occurrence = EXCLUDED.last_occurrence,
+                                        last_state_change = NOW();
+                                """, (PIPELINE_FAILURE_IDENTIFIER, now, now, now, now))
+                        else:
+                            # Recovery condition: pipeline active
+                            if active_failure and active_failure["status"] == "OPEN":
+                                logging.info(f"✅ [WATCHDOG RECOVERY] Replication resumed ({time_since_last:.1f}s ago). Clearing alert.")
+                                cur.execute("""
+                                    UPDATE alerts SET
+                                        severity = 'CLEAR',
+                                        status = 'RESOLVED',
+                                        summary = '✅ Replication Pipeline from Instance 1 Restored and Active.',
+                                        version = version + 1,
+                                        last_occurrence = %s,
+                                        last_state_change = NOW()
+                                    WHERE identifier = %s;
+                                """, (now, PIPELINE_FAILURE_IDENTIFIER))
+            except Exception as e:
+                logging.warning(f"Watchdog worker exception: {e}")
+
+    @app.on_event("startup")
+    def startup_event():
+        t = threading.Thread(target=watchdog_worker, daemon=True)
+        t.start()
 
     if __name__ == "__main__":
         import uvicorn

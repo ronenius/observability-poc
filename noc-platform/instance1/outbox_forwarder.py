@@ -12,6 +12,8 @@ import sys
 import time
 import json
 import logging
+import threading
+from datetime import datetime, timezone
 import requests
 import psycopg
 from psycopg.rows import dict_row
@@ -28,7 +30,96 @@ adapter = requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=50)
 SESSION.mount("http://", adapter)
 SESSION.mount("https://", adapter)
 
+BACKPRESSURE_FAILURES = 0
+LAST_MAINTENANCE = 0.0
+
+def compact_outbox(conn) -> int:
+    """
+    Issue 7: Outbox Compaction during backpressure or gateway outages.
+    Collapses intermediate pending updates for the same alert_id, retaining only the latest ID.
+    Because Instance 2 performs version-checked atomic upsert, older pending versions are redundant.
+    """
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                DELETE FROM alerts_outbox a
+                WHERE a.status = 'PENDING'
+                  AND EXISTS (
+                      SELECT 1 FROM alerts_outbox b
+                      WHERE b.alert_id = a.alert_id
+                        AND b.status = 'PENDING'
+                        AND b.id > a.id
+                  );
+            """)
+            deleted = cur.rowcount
+            if deleted > 0:
+                conn.commit()
+                logging.info(f"🧹 [OUTBOX COMPACTION] Purged {deleted} obsolete pending updates from outbox during backpressure.")
+            return deleted
+    except Exception as e:
+        conn.rollback()
+        logging.warning(f"Failed to compact outbox: {e}")
+        return 0
+
+def prune_dlq(conn) -> int:
+    """
+    Issue 7: Prunes dead-letter queue entries older than 7 days to prevent unbounded growth.
+    """
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM alerts_dlq WHERE failed_at < NOW() - INTERVAL '7 days';")
+            deleted = cur.rowcount
+            if deleted > 0:
+                conn.commit()
+                logging.info(f"🧹 [DLQ RETENTION] Pruned {deleted} expired DLQ records.")
+            return deleted
+    except Exception as e:
+        conn.rollback()
+        logging.warning(f"Failed to prune DLQ: {e}")
+        return 0
+
+def heartbeat_emitter_thread():
+    """
+    Issue 19: Meta-Monitoring Synthetic Heartbeat.
+    Emits a synthetic heartbeat every 30 seconds into alerts table on Instance 1,
+    which triggers an outbox row and syncs across the gateway to Instance 2.
+    """
+    logging.info("💓 Starting Synthetic Heartbeat Emitter (interval: 30s)...")
+    time.sleep(5.0)
+    while True:
+        try:
+            with psycopg.connect(DB_URI, autocommit=True, row_factory=dict_row) as hb_conn:
+                while True:
+                    now = datetime.now(timezone.utc)
+                    with hb_conn.cursor() as cur:
+                        cur.execute("""
+                            INSERT INTO alerts (
+                                identifier, node, alert_key, severity, status, summary,
+                                tally, version, first_occurrence, last_occurrence, last_state_change,
+                                custom_fields
+                            ) VALUES (
+                                'system:pipeline_heartbeat', 'system-monitor', 'replication_heartbeat',
+                                'INFO', 'OPEN', 'Instance 1 Cross-Domain Pipeline Heartbeat',
+                                1, 1, %s, %s, %s,
+                                '{"source": "instance1-meta-monitor", "type": "synthetic_heartbeat"}'::jsonb
+                            )
+                            ON CONFLICT (identifier) DO UPDATE SET
+                                tally = alerts.tally + 1,
+                                version = alerts.version + 1,
+                                last_occurrence = EXCLUDED.last_occurrence,
+                                summary = 'Instance 1 Cross-Domain Pipeline Heartbeat'
+                            RETURNING version, tally;
+                        """, (now, now, now))
+                        res = cur.fetchone()
+                        if res and res["version"] % 5 == 0:
+                            logging.info(f"💓 [HEARTBEAT] Emitted pipeline heartbeat (version: {res['version']}, tally: {res['tally']})")
+                    time.sleep(30.0)
+        except Exception as e:
+            logging.warning(f"Heartbeat emitter error: {e}. Retrying in 10s...")
+            time.sleep(10.0)
+
 def process_outbox(conn) -> bool:
+    global BACKPRESSURE_FAILURES
     with conn.cursor() as cur:
         cur.execute("""
             SELECT id, alert_id, operation, payload, retry_count
@@ -55,17 +146,24 @@ def process_outbox(conn) -> bool:
                 headers={"Content-Type": "application/json"}
             )
             if resp.status_code in (200, 201):
+                BACKPRESSURE_FAILURES = 0
                 cur.execute("DELETE FROM alerts_outbox WHERE id = ANY(%s);", (all_ids,))
                 conn.commit()
                 return len(rows) == BATCH_SIZE
             elif resp.status_code == 503:
-                logging.warning("⚠️ Gateway unavailable (HTTP 503). Backing off.")
+                BACKPRESSURE_FAILURES += 1
+                logging.warning(f"⚠️ Gateway unavailable (HTTP 503, failure count: {BACKPRESSURE_FAILURES}). Backing off.")
                 conn.rollback()
+                if BACKPRESSURE_FAILURES % 3 == 0:
+                    compact_outbox(conn)
                 time.sleep(1.0)
                 return False
         except requests.RequestException as e:
-            logging.warning(f"🔌 Gateway connectivity error: {e}. Backing off.")
+            BACKPRESSURE_FAILURES += 1
+            logging.warning(f"🔌 Gateway connectivity error: {e} (failure count: {BACKPRESSURE_FAILURES}). Backing off.")
             conn.rollback()
+            if BACKPRESSURE_FAILURES % 3 == 0:
+                compact_outbox(conn)
             time.sleep(1.0)
             return False
 
@@ -119,9 +217,14 @@ def process_outbox(conn) -> bool:
         return len(rows) == BATCH_SIZE
 
 def run_daemon():
+    global LAST_MAINTENANCE
     logging.info("🚀 Starting Outbox Forwarder Daemon...")
     logging.info(f"  • DB: {DB_URI}")
     logging.info(f"  • Gateway Target: {GATEWAY_URL}")
+
+    # Issue 19: Start Synthetic Heartbeat Emitter Thread
+    hb_thread = threading.Thread(target=heartbeat_emitter_thread, daemon=True)
+    hb_thread.start()
 
     while True:
         try:
@@ -136,7 +239,14 @@ def run_daemon():
                     while process_outbox(conn):
                         pass
 
-                    # 2. Ensure connection is out of transaction, then wait on notifies
+                    # 2. Periodic Maintenance (DLQ prune & Compaction check every 60s)
+                    now_t = time.time()
+                    if now_t - LAST_MAINTENANCE > 60.0:
+                        prune_dlq(conn)
+                        compact_outbox(conn)
+                        LAST_MAINTENANCE = now_t
+
+                    # 3. Ensure connection is out of transaction, then wait on notifies
                     conn.rollback()
                     for notify in conn.notifies(timeout=5.0):
                         break

@@ -347,6 +347,47 @@ def delete_alert(identifier: str):
             logging.info(f"🗑️ [SOFT DELETE] {identifier} marked as PURGED (version: {deleted['version']})")
             return {"status": "deleted", "identifier": identifier}
 
+@app.post("/api/v1/admin/rehydrate")
+def rehydrate_alerts(include_resolved: bool = False):
+    """
+    Cold Start Rehydration Endpoint (Issue 10):
+    Re-queues all active (non-resolved) alerts into alerts_outbox as SNAPSHOT operations,
+    allowing Instance 2 to be rebuilt or populated from scratch.
+    """
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            status_filter = "" if include_resolved else "WHERE status != 'RESOLVED' AND deleted_at IS NULL"
+            cur.execute(f"""
+                INSERT INTO alerts_outbox (alert_id, operation, payload, status)
+                SELECT identifier, 'SNAPSHOT', jsonb_build_object(
+                    'operation', 'SNAPSHOT',
+                    'identifier', identifier,
+                    'node', node,
+                    'alert_key', alert_key,
+                    'severity', severity,
+                    'status', status,
+                    'summary', summary,
+                    'tally', tally,
+                    'version', version,
+                    'first_occurrence', first_occurrence,
+                    'last_occurrence', last_occurrence,
+                    'last_state_change', last_state_change,
+                    'is_flapping', is_flapping,
+                    'custom_fields', custom_fields,
+                    'deleted_at', deleted_at
+                ), 'PENDING'
+                FROM alerts
+                {status_filter};
+            """)
+            count = cur.rowcount
+            cur.execute("SELECT pg_notify('alert_outbox_channel', 'new_record');")
+            logging.info(f"🔄 [REHYDRATION] Queued {count} alerts for cross-domain snapshot replication.")
+            return {
+                "status": "success",
+                "rehydrated_count": count,
+                "message": f"Successfully queued {count} alerts into outbox for Instance 2 rehydration."
+            }
+
 @app.get("/healthz")
 def healthz():
     with get_db() as conn:
