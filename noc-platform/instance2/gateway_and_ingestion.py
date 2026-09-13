@@ -107,7 +107,8 @@ class ReplicatedEnvelope(BaseModel):
     deleted_at: Optional[str] = None
 
 class SnoozeRequest(BaseModel):
-    duration_minutes: Optional[int] = 5
+    duration_minutes: Optional[float] = 5.0
+    duration_seconds: Optional[int] = None
     snooze_until: Optional[str] = None
     reason: Optional[str] = "Suppressed by operator in NOC Console"
 
@@ -134,18 +135,41 @@ def _replicate_one_item(cur, payload: Dict[str, Any]) -> Dict[str, Any]:
     ver = payload["version"]
     sev = payload["severity"]
     stat = payload["status"]
-    custom = json.dumps(payload.get("custom_fields", {}))
+    incoming_custom = payload.get("custom_fields") or {}
     now = datetime.now(timezone.utc)
 
     first_occ = payload.get("first_occurrence") or now
     last_occ = payload.get("last_occurrence") or now
     last_change = payload.get("last_state_change") or now
     deleted_at = payload.get("deleted_at")
-    snooze_until = payload.get("snooze_until") or (payload.get("custom_fields") or {}).get("snooze_until")
+    snooze_until = payload.get("snooze_until") or incoming_custom.get("snooze_until")
 
-    # Atomic UPSERT with Optimistic Concurrency Check:
-    # Only update if incoming version is >= existing version!
-    # Prevents race conditions, network retries, and out-of-order zombie alerts!
+    # Central NOC is the sole authority for operator workflow states (Snooze/Ack).
+    # If edge sends SNOOZED or ACKNOWLEDGED, Central NOC treats it as OPEN unless
+    # an operator on Central NOC has already snoozed or acknowledged it.
+    init_stat = stat
+    if sev == "CLEAR" or stat == "RESOLVED":
+        init_stat = "RESOLVED"
+    elif stat == "PURGED" or deleted_at is not None:
+        init_stat = "PURGED"
+    elif init_stat in ("SNOOZED", "ACKNOWLEDGED"):
+        init_stat = "OPEN"
+
+    # Strip edge operator workflow fields so edge cannot inject snooze/ack metadata into Central NOC
+    incoming_custom.pop("snooze_reason", None)
+    incoming_custom.pop("snoozed_at", None)
+    incoming_custom.pop("snooze_until", None)
+    incoming_custom.pop("acknowledged_by", None)
+
+    # Stamp edge_version in custom fields to track edge synchronization independently from operator mutations
+    incoming_custom["edge_version"] = ver
+    custom = json.dumps(incoming_custom)
+
+    # State Arbitration UPSERT:
+    # 1. Telemetry fields (tally, last_occurrence, is_flapping) are always refreshed from incoming edge data.
+    # 2. Operator workflow fields (SNOOZED, ACKNOWLEDGED) on Central NOC are PRESERVED and held authoritative.
+    # 3. Edge-originated snooze/ack events are ignored; Central NOC remains OPEN.
+    # 4. Hardware CLEAR events or severe escalation break through to resolve or awaken the alert.
     cur.execute("""
         INSERT INTO alerts (
             identifier, node, alert_key, severity, status, summary,
@@ -154,29 +178,59 @@ def _replicate_one_item(cur, payload: Dict[str, Any]) -> Dict[str, Any]:
         ) VALUES (
             %s, %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s,
-            %s, %s, %s, NOW(), %s
+            %s, %s, %s, NOW(), NULL
         )
         ON CONFLICT (identifier) DO UPDATE SET
+            -- TELEMETRY PLANE: Always update telemetry from edge collectors
             node = EXCLUDED.node,
             alert_key = EXCLUDED.alert_key,
-            severity = EXCLUDED.severity,
-            status = EXCLUDED.status,
             summary = EXCLUDED.summary,
             tally = EXCLUDED.tally,
-            version = EXCLUDED.version,
             last_occurrence = EXCLUDED.last_occurrence,
-            last_state_change = EXCLUDED.last_state_change,
             is_flapping = EXCLUDED.is_flapping,
-            custom_fields = EXCLUDED.custom_fields,
-            deleted_at = EXCLUDED.deleted_at,
             replicated_at = NOW(),
-            snooze_until = EXCLUDED.snooze_until
-        WHERE EXCLUDED.version >= alerts.version
+            deleted_at = EXCLUDED.deleted_at,
+            severity = EXCLUDED.severity,
+            version = GREATEST(alerts.version, EXCLUDED.version) + 1,
+
+            -- OPERATOR WORKFLOW ARBITRATION:
+            status = CASE
+                -- 1. Hardware Clear: recovery event always resolves the alert
+                WHEN EXCLUDED.status = 'RESOLVED' OR EXCLUDED.severity = 'CLEAR' THEN 'RESOLVED'
+                -- 2. Soft-delete / Purge
+                WHEN EXCLUDED.status = 'PURGED' OR EXCLUDED.deleted_at IS NOT NULL THEN 'PURGED'
+                -- 3. Severity Escalation: Critical escalation breaks out of snooze / ack
+                WHEN (alerts.severity = 'WARNING' AND EXCLUDED.severity IN ('MAJOR', 'CRITICAL'))
+                  OR (alerts.severity = 'MAJOR' AND EXCLUDED.severity = 'CRITICAL') THEN 'OPEN'
+                -- 4. Central NOC Human Operator Lease: Preserve SNOOZED and ACKNOWLEDGED set by Central NOC operator!
+                WHEN alerts.status IN ('SNOOZED', 'ACKNOWLEDGED') THEN alerts.status
+                -- 5. Sole Authority Default: Incoming edge telemetry is treated as OPEN on Central NOC
+                ELSE 'OPEN'
+            END,
+
+            -- SNOOZE EXPIRATION:
+            snooze_until = CASE
+                WHEN EXCLUDED.status = 'RESOLVED' OR EXCLUDED.severity = 'CLEAR' THEN NULL
+                WHEN (alerts.severity = 'WARNING' AND EXCLUDED.severity IN ('MAJOR', 'CRITICAL'))
+                  OR (alerts.severity = 'MAJOR' AND EXCLUDED.severity = 'CRITICAL') THEN NULL
+                WHEN alerts.status = 'SNOOZED' THEN alerts.snooze_until
+                ELSE NULL
+            END,
+
+            -- CUSTOM FIELDS: Merge incoming telemetry while preserving Central NOC operator metadata
+            custom_fields = EXCLUDED.custom_fields || jsonb_strip_nulls(jsonb_build_object(
+                'snooze_reason', alerts.custom_fields->>'snooze_reason',
+                'snoozed_at', alerts.custom_fields->>'snoozed_at',
+                'snooze_until', alerts.custom_fields->>'snooze_until',
+                'acknowledged_by', alerts.custom_fields->>'acknowledged_by',
+                'operator_notes', alerts.custom_fields->>'operator_notes'
+            ))
+        WHERE EXCLUDED.version >= COALESCE((alerts.custom_fields->>'edge_version')::int, 0)
         RETURNING (xmax = 0) AS was_inserted, version;
     """, (
-        ident, payload["node"], payload.get("alert_key", "default"), sev, stat, payload.get("summary", ""),
+        ident, payload["node"], payload.get("alert_key", "default"), sev, init_stat, payload.get("summary", ""),
         payload["tally"], ver, first_occ, last_occ, last_change,
-        payload.get("is_flapping", False), custom, deleted_at, snooze_until
+        payload.get("is_flapping", False), custom, deleted_at
     ))
     res = cur.fetchone()
 
@@ -311,33 +365,21 @@ def get_secondary_alert(identifier: str):
 @app.post("/api/v1/alerts/{identifier}/snooze")
 def snooze_alert_secondary(identifier: str, req: SnoozeRequest):
     """
-    Snooze Alert on Instance 2:
-    1. Proxies action to Instance 1 if reachable (triggering CDC Outbox replication).
-    2. Updates local DB2 directly to ensure zero-latency UI update and standalone failover resilience.
+    Snooze Alert on Instance 2 (Central Operator NOC):
+    Autonomous local state change. Instance 2 is the workflow authority.
+    Air-gap safe: zero outbound calls to edge instances.
     """
     now = datetime.now(timezone.utc)
     if req.snooze_until:
         until_dt = datetime.fromisoformat(req.snooze_until.replace("Z", "+00:00"))
+    elif req.duration_seconds is not None:
+        until_dt = now + timedelta(seconds=req.duration_seconds)
     else:
-        mins = req.duration_minutes or 5
-        until_dt = now + timedelta(minutes=mins)
+        mins = req.duration_minutes if req.duration_minutes is not None else 5.0
+        until_dt = now + timedelta(minutes=float(mins))
 
     iso_until = until_dt.isoformat()
 
-    # 1. Forward to Primary Instance 1
-    fwd_success = False
-    try:
-        r = requests.post(
-            f"{INSTANCE1_API_URL}/api/v1/alerts/{identifier}/snooze",
-            json={"duration_minutes": req.duration_minutes, "snooze_until": req.snooze_until, "reason": req.reason},
-            timeout=2.0
-        )
-        if r.status_code == 200:
-            fwd_success = True
-    except Exception as e:
-        logging.warning(f"Could not forward snooze to Primary Instance 1: {e}")
-
-    # 2. Update local DB2 directly
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -357,18 +399,13 @@ def snooze_alert_secondary(identifier: str, req: SnoozeRequest):
             updated = cur.fetchone()
             if not updated:
                 raise HTTPException(status_code=404, detail="Alert not found in secondary database")
-            logging.info(f"💤 [INSTANCE 2 SNOOZE] Alert {identifier} snoozed until {iso_until} (v{updated['version']}, forwarded_to_primary: {fwd_success})")
+            logging.info(f"💤 [CENTRAL NOC SNOOZE] Alert {identifier} snoozed until {iso_until} (v{updated['version']})")
             return updated
 
 @app.post("/api/v1/alerts/{identifier}/unsnooze")
 def unsnooze_alert_secondary(identifier: str):
-    """Manually wake up a snoozed alert before expiration on Instance 2."""
+    """Manually wake up a snoozed alert before expiration on Central NOC."""
     now = datetime.now(timezone.utc)
-    try:
-        requests.post(f"{INSTANCE1_API_URL}/api/v1/alerts/{identifier}/unsnooze", timeout=2.0)
-    except Exception as e:
-        logging.warning(f"Could not forward unsnooze to Primary Instance 1: {e}")
-
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -384,22 +421,13 @@ def unsnooze_alert_secondary(identifier: str):
             updated = cur.fetchone()
             if not updated:
                 raise HTTPException(status_code=404, detail="Alert not found in secondary database")
-            logging.info(f"⏰ [INSTANCE 2 UNSNOOZE] Alert {identifier} awakened to OPEN (v{updated['version']})")
+            logging.info(f"⏰ [CENTRAL NOC UNSNOOZE] Alert {identifier} awakened to OPEN (v{updated['version']})")
             return updated
 
 @app.patch("/api/v1/alerts/{identifier}")
 def patch_alert_secondary(identifier: str, patch: AlertPatch):
-    """Operators ACK, Resolve, Reopen alert on Instance 2."""
+    """Operators ACK, Resolve, Reopen alert on Central NOC."""
     now = datetime.now(timezone.utc)
-    try:
-        requests.patch(
-            f"{INSTANCE1_API_URL}/api/v1/alerts/{identifier}",
-            json=patch.dict(exclude_none=True),
-            timeout=2.0
-        )
-    except Exception as e:
-        logging.warning(f"Could not forward patch to Primary Instance 1: {e}")
-
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM alerts WHERE identifier = %s AND deleted_at IS NULL;", (identifier,))
@@ -427,18 +455,13 @@ def patch_alert_secondary(identifier: str, patch: AlertPatch):
                 RETURNING *;
             """, (new_status, new_severity, new_summary, now, json.dumps(merged_custom), identifier))
             updated = cur.fetchone()
-            logging.info(f"✍️ [INSTANCE 2 PATCH] {identifier} | Status: {new_status} | Version: {updated['version']}")
+            logging.info(f"✍️ [CENTRAL NOC PATCH] {identifier} | Status: {new_status} | Version: {updated['version']}")
             return updated
 
 @app.delete("/api/v1/alerts/{identifier}")
 def delete_alert_secondary(identifier: str):
-    """Soft-delete on Instance 2."""
+    """Soft-delete on Central NOC."""
     now = datetime.now(timezone.utc)
-    try:
-        requests.delete(f"{INSTANCE1_API_URL}/api/v1/alerts/{identifier}", timeout=2.0)
-    except Exception as e:
-        logging.warning(f"Could not forward delete to Primary Instance 1: {e}")
-
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -452,7 +475,7 @@ def delete_alert_secondary(identifier: str):
             deleted = cur.fetchone()
             if not deleted:
                 raise HTTPException(status_code=404, detail="Alert not found in secondary database")
-            logging.info(f"🗑️ [INSTANCE 2 DELETE] {identifier} marked as PURGED (version: {deleted['version']})")
+            logging.info(f"🗑️ [CENTRAL NOC DELETE] {identifier} marked as PURGED (version: {deleted['version']})")
             return {"status": "deleted", "identifier": identifier}
 
 @app.get("/api/v1/audit-log")

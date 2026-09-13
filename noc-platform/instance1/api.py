@@ -99,7 +99,8 @@ class AlertPatch(BaseModel):
     custom_fields: Optional[Dict[str, Any]] = None
 
 class SnoozeRequest(BaseModel):
-    duration_minutes: Optional[int] = 5
+    duration_minutes: Optional[float] = 5.0
+    duration_seconds: Optional[int] = None
     snooze_until: Optional[str] = None
     reason: Optional[str] = "Investigating / Maintenance"
 
@@ -372,9 +373,11 @@ def snooze_alert(identifier: str, req: SnoozeRequest):
     now = datetime.now(timezone.utc)
     if req.snooze_until:
         until_dt = datetime.fromisoformat(req.snooze_until.replace("Z", "+00:00"))
+    elif req.duration_seconds is not None:
+        until_dt = now + timedelta(seconds=req.duration_seconds)
     else:
-        mins = req.duration_minutes or 5
-        until_dt = now + timedelta(minutes=mins)
+        mins = req.duration_minutes if req.duration_minutes is not None else 5.0
+        until_dt = now + timedelta(minutes=float(mins))
 
     iso_until = until_dt.isoformat()
 
