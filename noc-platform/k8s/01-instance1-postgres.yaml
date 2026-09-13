@@ -72,6 +72,19 @@ data:
         failed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    -- Aggressive autovacuum tuning for high-churn Outbox and DLQ tables
+    ALTER TABLE alerts_outbox SET (
+        autovacuum_vacuum_scale_factor = 0.01,
+        autovacuum_vacuum_threshold = 100,
+        autovacuum_vacuum_cost_delay = 2,
+        autovacuum_vacuum_cost_limit = 1000
+    );
+
+    ALTER TABLE alerts_dlq SET (
+        autovacuum_vacuum_scale_factor = 0.01,
+        autovacuum_vacuum_threshold = 100
+    );
+
     -- 4. Outbox Trigger Function
     CREATE OR REPLACE FUNCTION notify_outbox_trigger()
     RETURNS TRIGGER AS $$
@@ -162,6 +175,15 @@ spec:
       - name: postgres
         image: postgres:16-alpine
         imagePullPolicy: IfNotPresent
+        args:
+        - -c
+        - autovacuum_naptime=5s
+        - -c
+        - autovacuum_vacuum_cost_limit=1000
+        - -c
+        - autovacuum_vacuum_cost_delay=2ms
+        - -c
+        - autovacuum_max_workers=4
         env:
         - name: POSTGRES_USER
           value: postgres

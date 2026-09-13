@@ -27,6 +27,17 @@ data:
         replicated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    -- HOT Update Tuning (Leaves 30% page space free for in-place deduplication updates)
+    ALTER TABLE alerts SET (fillfactor = 70);
+
+    -- Aggressive autovacuum tuning for high-churn tables
+    ALTER TABLE alerts SET (
+        autovacuum_vacuum_scale_factor = 0.01,
+        autovacuum_vacuum_threshold = 100,
+        autovacuum_vacuum_cost_delay = 2,
+        autovacuum_vacuum_cost_limit = 1000
+    );
+
     CREATE INDEX IF NOT EXISTS idx_sec_alerts_active 
     ON alerts (identifier, severity) 
     WHERE status != 'RESOLVED' AND deleted_at IS NULL;
@@ -40,6 +51,13 @@ data:
         severity VARCHAR(32) NOT NULL,
         status VARCHAR(32) NOT NULL,
         received_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    ALTER TABLE alerts_replication_log SET (
+        autovacuum_vacuum_scale_factor = 0.01,
+        autovacuum_vacuum_threshold = 100,
+        autovacuum_vacuum_cost_delay = 2,
+        autovacuum_vacuum_cost_limit = 1000
     );
 ---
 apiVersion: apps/v1
@@ -63,6 +81,15 @@ spec:
       - name: postgres
         image: postgres:16-alpine
         imagePullPolicy: IfNotPresent
+        args:
+        - -c
+        - autovacuum_naptime=5s
+        - -c
+        - autovacuum_vacuum_cost_limit=1000
+        - -c
+        - autovacuum_vacuum_cost_delay=2ms
+        - -c
+        - autovacuum_max_workers=4
         env:
         - name: POSTGRES_USER
           value: postgres
