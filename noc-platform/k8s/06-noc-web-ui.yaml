@@ -202,6 +202,7 @@ data:
                 <option value="ACTIVE" selected>Active (Open/Ack)</option>
                 <option value="OPEN">Open</option>
                 <option value="ACKNOWLEDGED">Acknowledged</option>
+                <option value="SNOOZED">Snoozed 💤</option>
                 <option value="RESOLVED">Resolved</option>
               </select>
             </div>
@@ -239,6 +240,47 @@ data:
             <div class="modal-footer">
               <button id="cancel-custom-time" class="btn btn-secondary">Cancel</button>
               <button id="apply-custom-time" class="btn btn-primary">Apply Custom Range</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Snooze Alert Modal -->
+        <div id="snooze-modal" class="modal-backdrop hidden">
+          <div class="modal-card snooze-modal-card">
+            <div class="modal-header">
+              <div class="modal-title-wrap">
+                <span class="modal-icon-badge">💤</span>
+                <div>
+                  <h3>Snooze Alert</h3>
+                  <p class="modal-subtitle" id="snooze-target-ident">Temporarily suppress alarm notification</p>
+                </div>
+              </div>
+              <button id="close-snooze-modal-btn" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label class="form-label">Select Snooze Duration:</label>
+                <div class="snooze-presets-grid" id="snooze-presets-grid">
+                  <button type="button" class="snooze-preset-btn" data-minutes="1">1 Min (Test)</button>
+                  <button type="button" class="snooze-preset-btn active" data-minutes="5">5 Mins</button>
+                  <button type="button" class="snooze-preset-btn" data-minutes="15">15 Mins</button>
+                  <button type="button" class="snooze-preset-btn" data-minutes="30">30 Mins</button>
+                  <button type="button" class="snooze-preset-btn" data-minutes="60">1 Hour</button>
+                  <button type="button" class="snooze-preset-btn" data-minutes="240">4 Hours</button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="snooze-custom-minutes">Or Custom Duration (minutes):</label>
+                <input type="number" id="snooze-custom-minutes" class="custom-input" min="1" max="43200" placeholder="e.g. 10" />
+              </div>
+              <div class="form-group">
+                <label for="snooze-reason-input">Operator Reason / Maintenance Ticket:</label>
+                <input type="text" id="snooze-reason-input" class="custom-input" placeholder="e.g. Scheduled switch reboot, flap investigation (ticket #1042)" />
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button id="cancel-snooze-btn" class="btn btn-secondary">Cancel</button>
+              <button id="confirm-snooze-btn" class="btn btn-purple">Confirm Snooze 💤</button>
             </div>
           </div>
         </div>
@@ -306,6 +348,14 @@ data:
                     <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     Acknowledge
                   </button>
+                  <button id="action-snooze-btn" class="btn btn-purple btn-sm">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                    Snooze 💤
+                  </button>
+                  <button id="action-unsnooze-btn" class="btn btn-outline-purple btn-sm hidden">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+                    Awaken (Un-snooze)
+                  </button>
                   <button id="action-resolve-btn" class="btn btn-success btn-sm">
                     <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
                     Resolve
@@ -336,6 +386,10 @@ data:
                   <div class="meta-item">
                     <span class="meta-label">Status:</span>
                     <span class="meta-val" id="drawer-status">-</span>
+                  </div>
+                  <div class="meta-item" id="drawer-snooze-row" style="display: none;">
+                    <span class="meta-label">Snoozed Until:</span>
+                    <span class="meta-val mono" id="drawer-snooze-until" style="color: #c4b5fd;">-</span>
                   </div>
                   <div class="meta-item">
                     <span class="meta-label">Deduplicated Tally:</span>
@@ -434,6 +488,7 @@ data:
       --status-open: #3b82f6;
       --status-ack: #f59e0b;
       --status-resolved: #10b981;
+      --status-snoozed: #a855f7;
 
       /* Typography */
       --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -1164,6 +1219,13 @@ data:
       border: 1px solid rgba(16, 185, 129, 0.3);
     }
 
+    .status-snoozed {
+      background: rgba(168, 85, 247, 0.18);
+      color: #d8b4fe;
+      border: 1px solid rgba(168, 85, 247, 0.45);
+      box-shadow: 0 0 10px rgba(168, 85, 247, 0.15);
+    }
+
     /* Identifier cell */
     .ident-cell {
       display: flex;
@@ -1498,6 +1560,30 @@ data:
       background: rgba(244, 63, 94, 0.3);
     }
 
+    .btn-purple {
+      background: rgba(168, 85, 247, 0.2);
+      color: #e9d5ff;
+      border: 1px solid rgba(168, 85, 247, 0.45);
+      box-shadow: 0 0 10px rgba(168, 85, 247, 0.15);
+    }
+    .btn-purple:hover {
+      background: rgba(168, 85, 247, 0.35);
+      color: #fff;
+      border-color: rgba(168, 85, 247, 0.7);
+      box-shadow: 0 0 14px rgba(168, 85, 247, 0.3);
+    }
+
+    .btn-outline-purple {
+      background: transparent;
+      color: #c4b5fd;
+      border: 1px dashed rgba(168, 85, 247, 0.5);
+    }
+    .btn-outline-purple:hover {
+      background: rgba(168, 85, 247, 0.2);
+      color: #fff;
+      border-color: rgba(168, 85, 247, 0.8);
+    }
+
     /* ==========================================================================
        Modal (Custom Time Picker)
        ========================================================================== */
@@ -1591,6 +1677,111 @@ data:
       background: rgba(15, 23, 42, 0.4);
     }
 
+    /* Snooze Modal Specifics */
+    .snooze-modal-card {
+      width: 480px;
+    }
+
+    .modal-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .modal-icon-badge {
+      font-size: 24px;
+      background: rgba(168, 85, 247, 0.15);
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      border-radius: var(--radius-md);
+      padding: 6px 10px;
+    }
+
+    .modal-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .form-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .snooze-presets-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .snooze-preset-btn {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-secondary);
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--anim-fast);
+      text-align: center;
+    }
+
+    .snooze-preset-btn:hover {
+      background: rgba(51, 65, 85, 0.8);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .snooze-preset-btn.active {
+      background: rgba(168, 85, 247, 0.25);
+      color: #e9d5ff;
+      border-color: rgba(168, 85, 247, 0.6);
+      box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+    }
+
+    .snooze-table-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: #c4b5fd;
+      background: rgba(168, 85, 247, 0.12);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-top: 4px;
+    }
+
+    .action-btn-group {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    .btn-icon-snooze {
+      background: rgba(168, 85, 247, 0.15);
+      color: #d8b4fe;
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      padding: 5px 9px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all var(--anim-fast);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn-icon-snooze:hover {
+      background: rgba(168, 85, 247, 0.3);
+      color: #fff;
+      border-color: rgba(168, 85, 247, 0.6);
+    }
+
     /* ==========================================================================
        Toast Notifications
        ========================================================================== */
@@ -1679,6 +1870,8 @@ data:
         searchQuery: '',
         limit: 250,
         selectedAlert: null,
+        snoozeTargetAlert: null,
+        snoozeDurationMinutes: 5,
         isFetching: false,
         timerRef: null,
         countdownMsRemaining: 5000,
@@ -1718,6 +1911,16 @@ data:
         kpiFlapping: document.getElementById('kpi-flapping-val'),
         kpiTally: document.getElementById('kpi-tally-val'),
 
+        // Snooze Modal
+        snoozeModal: document.getElementById('snooze-modal'),
+        snoozeTargetIdent: document.getElementById('snooze-target-ident'),
+        snoozePresetsGrid: document.getElementById('snooze-presets-grid'),
+        snoozeCustomMinutes: document.getElementById('snooze-custom-minutes'),
+        snoozeReasonInput: document.getElementById('snooze-reason-input'),
+        confirmSnoozeBtn: document.getElementById('confirm-snooze-btn'),
+        cancelSnoozeBtn: document.getElementById('cancel-snooze-btn'),
+        closeSnoozeModalBtn: document.getElementById('close-snooze-modal-btn'),
+
         // Drawer
         drawer: document.getElementById('alert-drawer'),
         drawerCloseBtn: document.getElementById('drawer-close-btn'),
@@ -1726,6 +1929,8 @@ data:
         drawerNode: document.getElementById('drawer-node'),
         drawerAlertKey: document.getElementById('drawer-alert-key'),
         drawerStatus: document.getElementById('drawer-status'),
+        drawerSnoozeRow: document.getElementById('drawer-snooze-row'),
+        drawerSnoozeUntil: document.getElementById('drawer-snooze-until'),
         drawerTally: document.getElementById('drawer-tally'),
         drawerFlapping: document.getElementById('drawer-flapping'),
         drawerFlapCount: document.getElementById('drawer-flap-count'),
@@ -1735,6 +1940,8 @@ data:
         drawerSummary: document.getElementById('drawer-summary'),
         drawerCustomFields: document.getElementById('drawer-custom-fields'),
         actionAckBtn: document.getElementById('action-ack-btn'),
+        actionSnoozeBtn: document.getElementById('action-snooze-btn'),
+        actionUnsnoozeBtn: document.getElementById('action-unsnooze-btn'),
         actionResolveBtn: document.getElementById('action-resolve-btn'),
         actionReopenBtn: document.getElementById('action-reopen-btn'),
         actionDeleteBtn: document.getElementById('action-delete-btn'),
@@ -1771,6 +1978,24 @@ data:
         }
       }
 
+      function formatTimeUntil(isoString) {
+        if (!isoString) return '-';
+        const target = new Date(isoString);
+        const now = new Date();
+        const diffSec = Math.floor((target - now) / 1000);
+
+        if (diffSec <= 0) return 'awakening...';
+        if (diffSec < 60) return `${diffSec}s`;
+        const diffMin = Math.floor(diffSec / 60);
+        if (diffMin < 60) {
+          const sec = diffSec % 60;
+          return sec > 0 ? `${diffMin}m ${sec}s` : `${diffMin}m`;
+        }
+        const diffHours = Math.floor(diffMin / 60);
+        const remMin = diffMin % 60;
+        return `${diffHours}h ${remMin}m`;
+      }
+
       function formatNumber(num) {
         if (num == null) return '0';
         return Number(num).toLocaleString();
@@ -1803,6 +2028,12 @@ data:
           el.kpiActive.textContent = formatNumber(data.active_alerts);
           el.kpiFlapping.textContent = formatNumber(data.flapping_alerts);
           el.kpiTally.textContent = formatNumber(data.total_events_tally);
+
+          const snoozedCount = data.snoozed_alerts || 0;
+          const activeSub = document.querySelector('#kpi-card-active .kpi-subtext');
+          if (activeSub) {
+            activeSub.textContent = snoozedCount > 0 ? `Open & Ack • ${snoozedCount} Snoozed 💤` : 'Open & In-Progress';
+          }
 
           el.syncStatus.textContent = 'ONLINE';
           el.syncStatus.style.color = 'var(--sev-clear)';
@@ -1867,6 +2098,7 @@ data:
           case 'OPEN': return 'status-open';
           case 'ACKNOWLEDGED': return 'status-acknowledged';
           case 'RESOLVED': return 'status-resolved';
+          case 'SNOOZED': return 'status-snoozed';
           default: return '';
         }
       }
@@ -1900,8 +2132,12 @@ data:
           const sevClass = getSeverityClass(alert.severity);
           const statusClass = getStatusClass(alert.status);
           const isFlapping = alert.is_flapping;
+          const isSnoozed = alert.status === 'SNOOZED';
           const tallyVal = alert.tally || 1;
           const isHighTally = tallyVal > 5;
+          const snoozeTag = isSnoozed && alert.snooze_until
+            ? `<div class="snooze-table-tag" title="Snoozed until ${escapeHtml(alert.snooze_until)}">💤 ${escapeHtml(formatTimeUntil(alert.snooze_until))}</div>`
+            : '';
 
           tr.innerHTML = `
             <td>
@@ -1912,8 +2148,9 @@ data:
             </td>
             <td>
               <span class="badge-status ${statusClass}">
-                ${escapeHtml(alert.status)}
+                ${isSnoozed ? '💤 ' : ''}${escapeHtml(alert.status)}
               </span>
+              ${snoozeTag}
             </td>
             <td>
               <div class="ident-cell">
@@ -1942,11 +2179,27 @@ data:
               </div>
             </td>
             <td style="text-align: right;">
-              <button class="btn btn-secondary btn-sm inspect-btn" data-id="${escapeHtml(alert.identifier)}">Inspect</button>
+              <div class="action-btn-group">
+                ${isSnoozed
+                  ? `<button class="btn btn-outline-purple btn-sm unsnooze-row-btn" data-id="${escapeHtml(alert.identifier)}" title="Awaken alert back to OPEN">Awaken ⏰</button>`
+                  : `<button class="btn-icon-snooze snooze-row-btn" data-id="${escapeHtml(alert.identifier)}" title="Snooze this alert">💤</button>`
+                }
+                <button class="btn btn-secondary btn-sm inspect-btn" data-id="${escapeHtml(alert.identifier)}">Inspect</button>
+              </div>
             </td>
           `;
 
           tr.addEventListener('click', (e) => {
+            if (e.target.closest('.snooze-row-btn')) {
+              e.stopPropagation();
+              openSnoozeModal(alert);
+              return;
+            }
+            if (e.target.closest('.unsnooze-row-btn')) {
+              e.stopPropagation();
+              unsnoozeAlert(alert.identifier);
+              return;
+            }
             openAlertDrawer(alert);
           });
 
@@ -1973,7 +2226,7 @@ data:
         el.drawerIdent.textContent = alert.identifier;
         el.drawerNode.textContent = alert.node;
         el.drawerAlertKey.textContent = alert.alert_key;
-        el.drawerStatus.textContent = alert.status;
+        el.drawerStatus.textContent = alert.status === 'SNOOZED' ? 'SNOOZED 💤' : alert.status;
         el.drawerTally.textContent = `${alert.tally || 1} deduplicated events`;
         el.drawerFlapping.textContent = alert.is_flapping ? 'YES (Active)' : 'No';
         el.drawerFlapCount.textContent = alert.flap_count || 0;
@@ -1981,6 +2234,21 @@ data:
         el.drawerLastSeen.textContent = formatFullDate(alert.last_occurrence);
         el.drawerVersion.textContent = `v${alert.version}`;
         el.drawerSummary.textContent = alert.summary || 'No summary text provided.';
+
+        // Snooze state and action buttons
+        if (alert.status === 'SNOOZED') {
+          el.actionSnoozeBtn.classList.add('hidden');
+          el.actionUnsnoozeBtn.classList.remove('hidden');
+          el.drawerSnoozeRow.style.display = 'flex';
+          const untilFormatted = alert.snooze_until
+            ? `${formatFullDate(alert.snooze_until)} (${formatTimeUntil(alert.snooze_until)})`
+            : 'Indefinite';
+          el.drawerSnoozeUntil.textContent = untilFormatted;
+        } else {
+          el.actionSnoozeBtn.classList.remove('hidden');
+          el.actionUnsnoozeBtn.classList.add('hidden');
+          el.drawerSnoozeRow.style.display = 'none';
+        }
 
         // Severity badge styling
         el.drawerSevBadge.className = `badge-severity ${getSeverityClass(alert.severity)}`;
@@ -2038,6 +2306,81 @@ data:
           fetchSummaryMetrics();
         } catch (err) {
           showToast(`Purge failed: ${err.message}`, 'error');
+        }
+      }
+
+      // --- Snooze Modal Engine ---
+
+      function openSnoozeModal(alert) {
+        state.snoozeTargetAlert = alert;
+        el.snoozeTargetIdent.textContent = `${alert.identifier} (${alert.node})`;
+        state.snoozeDurationMinutes = 5;
+        el.snoozeCustomMinutes.value = '';
+        el.snoozeReasonInput.value = '';
+
+        // Reset presets to 5m active
+        document.querySelectorAll('#snooze-presets-grid .snooze-preset-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.minutes === '5');
+        });
+
+        el.snoozeModal.classList.remove('hidden');
+      }
+
+      function closeSnoozeModal() {
+        el.snoozeModal.classList.add('hidden');
+        state.snoozeTargetAlert = null;
+      }
+
+      async function confirmSnooze() {
+        if (!state.snoozeTargetAlert) return;
+        const ident = state.snoozeTargetAlert.identifier;
+        let minutes = state.snoozeDurationMinutes;
+
+        const customMin = parseInt(el.snoozeCustomMinutes.value, 10);
+        if (!isNaN(customMin) && customMin > 0) {
+          minutes = customMin;
+        }
+
+        const reason = el.snoozeReasonInput.value.trim() || 'Suppressed by operator in NOC Console';
+
+        try {
+          const res = await fetch(`${API_BASE}/alerts/${encodeURIComponent(ident)}/snooze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              duration_minutes: minutes,
+              reason: reason
+            })
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const updated = await res.json();
+          closeSnoozeModal();
+          showToast(`Alert ${ident} snoozed for ${minutes}m (auto-wakes at ${formatTimeUntil(updated.snooze_until)})`, 'success');
+
+          if (state.selectedAlert && state.selectedAlert.identifier === ident) {
+            openAlertDrawer(updated);
+          }
+          triggerFullRefresh();
+        } catch (err) {
+          showToast(`Failed to snooze alert: ${err.message}`, 'error');
+        }
+      }
+
+      async function unsnoozeAlert(ident) {
+        try {
+          const res = await fetch(`${API_BASE}/alerts/${encodeURIComponent(ident)}/unsnooze`, {
+            method: 'POST'
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const updated = await res.json();
+          showToast(`Alert ${ident} awakened back to OPEN`, 'success');
+
+          if (state.selectedAlert && state.selectedAlert.identifier === ident) {
+            openAlertDrawer(updated);
+          }
+          triggerFullRefresh();
+        } catch (err) {
+          showToast(`Failed to awaken alert: ${err.message}`, 'error');
         }
       }
 
@@ -2104,6 +2447,7 @@ data:
           if (e.key === 'Escape') {
             closeAlertDrawer();
             el.customModal.classList.add('hidden');
+            closeSnoozeModal();
           }
         });
 
@@ -2221,9 +2565,39 @@ data:
         // Drawer actions
         el.drawerCloseBtn.addEventListener('click', closeAlertDrawer);
         el.actionAckBtn.addEventListener('click', () => patchSelectedAlert('ACKNOWLEDGED'));
+        el.actionSnoozeBtn.addEventListener('click', () => {
+          if (state.selectedAlert) openSnoozeModal(state.selectedAlert);
+        });
+        el.actionUnsnoozeBtn.addEventListener('click', () => {
+          if (state.selectedAlert) unsnoozeAlert(state.selectedAlert.identifier);
+        });
         el.actionResolveBtn.addEventListener('click', () => patchSelectedAlert('RESOLVED'));
         el.actionReopenBtn.addEventListener('click', () => patchSelectedAlert('OPEN'));
         el.actionDeleteBtn.addEventListener('click', deleteSelectedAlert);
+
+        // Snooze Modal actions
+        el.closeSnoozeModalBtn.addEventListener('click', closeSnoozeModal);
+        el.cancelSnoozeBtn.addEventListener('click', closeSnoozeModal);
+        el.confirmSnoozeBtn.addEventListener('click', confirmSnooze);
+        el.snoozeModal.addEventListener('click', (e) => {
+          if (e.target === el.snoozeModal) closeSnoozeModal();
+        });
+
+        // Snooze duration preset buttons
+        el.snoozePresetsGrid.addEventListener('click', (e) => {
+          const btn = e.target.closest('.snooze-preset-btn');
+          if (!btn) return;
+          document.querySelectorAll('#snooze-presets-grid .snooze-preset-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.snoozeDurationMinutes = parseInt(btn.dataset.minutes, 10);
+          el.snoozeCustomMinutes.value = '';
+        });
+
+        el.snoozeCustomMinutes.addEventListener('input', () => {
+          if (el.snoozeCustomMinutes.value) {
+            document.querySelectorAll('#snooze-presets-grid .snooze-preset-btn').forEach(b => b.classList.remove('active'));
+          }
+        });
 
         // Close drawer when clicking outside panel
         el.drawer.addEventListener('click', (e) => {

@@ -167,6 +167,7 @@
             <option value="ACTIVE" selected>Active (Open/Ack)</option>
             <option value="OPEN">Open</option>
             <option value="ACKNOWLEDGED">Acknowledged</option>
+            <option value="SNOOZED">Snoozed 💤</option>
             <option value="RESOLVED">Resolved</option>
           </select>
         </div>
@@ -204,6 +205,47 @@
         <div class="modal-footer">
           <button id="cancel-custom-time" class="btn btn-secondary">Cancel</button>
           <button id="apply-custom-time" class="btn btn-primary">Apply Custom Range</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Snooze Alert Modal -->
+    <div id="snooze-modal" class="modal-backdrop hidden">
+      <div class="modal-card snooze-modal-card">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-icon-badge">💤</span>
+            <div>
+              <h3>Snooze Alert</h3>
+              <p class="modal-subtitle" id="snooze-target-ident">Temporarily suppress alarm notification</p>
+            </div>
+          </div>
+          <button id="close-snooze-modal-btn" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Select Snooze Duration:</label>
+            <div class="snooze-presets-grid" id="snooze-presets-grid">
+              <button type="button" class="snooze-preset-btn" data-minutes="1">1 Min (Test)</button>
+              <button type="button" class="snooze-preset-btn active" data-minutes="5">5 Mins</button>
+              <button type="button" class="snooze-preset-btn" data-minutes="15">15 Mins</button>
+              <button type="button" class="snooze-preset-btn" data-minutes="30">30 Mins</button>
+              <button type="button" class="snooze-preset-btn" data-minutes="60">1 Hour</button>
+              <button type="button" class="snooze-preset-btn" data-minutes="240">4 Hours</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="snooze-custom-minutes">Or Custom Duration (minutes):</label>
+            <input type="number" id="snooze-custom-minutes" class="custom-input" min="1" max="43200" placeholder="e.g. 10" />
+          </div>
+          <div class="form-group">
+            <label for="snooze-reason-input">Operator Reason / Maintenance Ticket:</label>
+            <input type="text" id="snooze-reason-input" class="custom-input" placeholder="e.g. Scheduled switch reboot, flap investigation (ticket #1042)" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="cancel-snooze-btn" class="btn btn-secondary">Cancel</button>
+          <button id="confirm-snooze-btn" class="btn btn-purple">Confirm Snooze 💤</button>
         </div>
       </div>
     </div>
@@ -271,6 +313,14 @@
                 <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 Acknowledge
               </button>
+              <button id="action-snooze-btn" class="btn btn-purple btn-sm">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                Snooze 💤
+              </button>
+              <button id="action-unsnooze-btn" class="btn btn-outline-purple btn-sm hidden">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+                Awaken (Un-snooze)
+              </button>
               <button id="action-resolve-btn" class="btn btn-success btn-sm">
                 <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
                 Resolve
@@ -301,6 +351,10 @@
               <div class="meta-item">
                 <span class="meta-label">Status:</span>
                 <span class="meta-val" id="drawer-status">-</span>
+              </div>
+              <div class="meta-item" id="drawer-snooze-row" style="display: none;">
+                <span class="meta-label">Snoozed Until:</span>
+                <span class="meta-val mono" id="drawer-snooze-until" style="color: #c4b5fd;">-</span>
               </div>
               <div class="meta-item">
                 <span class="meta-label">Deduplicated Tally:</span>

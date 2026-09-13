@@ -14,8 +14,10 @@ data:
 
     import os
     import json
+    import time
     import logging
-    from datetime import datetime, timezone
+    import threading
+    from datetime import datetime, timezone, timedelta
     from typing import Optional, Dict, Any, List, Union
     from fastapi import FastAPI, HTTPException, Query, Response, Request, status
     from pydantic import BaseModel, Field
@@ -98,10 +100,15 @@ data:
         custom_fields: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
     class AlertPatch(BaseModel):
-        status: Optional[str] = None       # OPEN, ACKNOWLEDGED, RESOLVED, PURGED
+        status: Optional[str] = None       # OPEN, ACKNOWLEDGED, RESOLVED, PURGED, SNOOZED
         severity: Optional[str] = None
         summary: Optional[str] = None
         custom_fields: Optional[Dict[str, Any]] = None
+
+    class SnoozeRequest(BaseModel):
+        duration_minutes: Optional[int] = 5
+        snooze_until: Optional[str] = None
+        reason: Optional[str] = "Investigating / Maintenance"
 
     # -------------------------------------------------------------
     # Ingestion API (Called by Vector or Direct Webhooks)
@@ -176,6 +183,10 @@ data:
         # Merge custom fields
         merged_custom = existing["custom_fields"] or {}
         merged_custom.update(custom_dict)
+        if sev == "CLEAR":
+            merged_custom.pop("snooze_until", None)
+            merged_custom.pop("snoozed_at", None)
+            merged_custom.pop("snooze_reason", None)
 
         cur.execute("""
             UPDATE alerts SET
@@ -188,12 +199,13 @@ data:
                 last_state_change = CASE WHEN severity != %s THEN %s ELSE last_state_change END,
                 flap_count = %s,
                 is_flapping = %s,
-                custom_fields = %s
+                custom_fields = %s,
+                snooze_until = CASE WHEN %s = 'CLEAR' THEN NULL ELSE snooze_until END
             WHERE identifier = %s
             RETURNING *;
         """, (
             sev, new_status, event.summary, now, sev, now,
-            flap_count, is_flapping, json.dumps(merged_custom), ident
+            flap_count, is_flapping, json.dumps(merged_custom), sev, ident
         ))
         updated = cur.fetchone()
         if updated["version"] % 500 == 0:
@@ -232,7 +244,9 @@ data:
         params = []
         if status:
             if status.upper() == "ACTIVE":
-                query += " AND status != 'RESOLVED'"
+                query += " AND status IN ('OPEN', 'ACKNOWLEDGED')"
+            elif status.upper() == "SNOOZED":
+                query += " AND status = 'SNOOZED'"
             else:
                 query += " AND status = %s"
                 params.append(status.upper())
@@ -277,13 +291,14 @@ data:
                 cur.execute(f"""
                     SELECT 
                         count(*) as total_alerts,
-                        count(*) FILTER (WHERE status != 'RESOLVED') as active_alerts,
-                        count(*) FILTER (WHERE severity = 'CRITICAL' AND status != 'RESOLVED') as critical_alerts,
-                        count(*) FILTER (WHERE severity = 'MAJOR' AND status != 'RESOLVED') as major_alerts,
-                        count(*) FILTER (WHERE severity = 'WARNING' AND status != 'RESOLVED') as warning_alerts,
+                        count(*) FILTER (WHERE status IN ('OPEN', 'ACKNOWLEDGED')) as active_alerts,
+                        count(*) FILTER (WHERE severity = 'CRITICAL' AND status IN ('OPEN', 'ACKNOWLEDGED')) as critical_alerts,
+                        count(*) FILTER (WHERE severity = 'MAJOR' AND status IN ('OPEN', 'ACKNOWLEDGED')) as major_alerts,
+                        count(*) FILTER (WHERE severity = 'WARNING' AND status IN ('OPEN', 'ACKNOWLEDGED')) as warning_alerts,
                         count(*) FILTER (WHERE is_flapping = TRUE) as flapping_alerts,
                         coalesce(sum(tally), 0) as total_events_tally,
                         count(*) FILTER (WHERE status = 'ACKNOWLEDGED') as acked_alerts,
+                        count(*) FILTER (WHERE status = 'SNOOZED') as snoozed_alerts,
                         count(*) FILTER (WHERE status = 'RESOLVED') as resolved_alerts
                     FROM alerts 
                     WHERE deleted_at IS NULL {time_filter};
@@ -353,6 +368,66 @@ data:
                     raise HTTPException(status_code=404, detail="Alert not found")
                 logging.info(f"🗑️ [SOFT DELETE] {identifier} marked as PURGED (version: {deleted['version']})")
                 return {"status": "deleted", "identifier": identifier}
+
+    @app.post("/api/v1/alerts/{identifier}/snooze")
+    def snooze_alert(identifier: str, req: SnoozeRequest):
+        """
+        Snooze Alert (Issue 16: Temporal Engine):
+        Suppresses the alert for the declared duration.
+        The Temporal Engine will automatically awaken the alert when the duration expires.
+        """
+        now = datetime.now(timezone.utc)
+        if req.snooze_until:
+            until_dt = datetime.fromisoformat(req.snooze_until.replace("Z", "+00:00"))
+        else:
+            mins = req.duration_minutes or 5
+            until_dt = now + timedelta(minutes=mins)
+
+        iso_until = until_dt.isoformat()
+
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE alerts SET
+                        status = 'SNOOZED',
+                        snooze_until = %s,
+                        last_state_change = %s,
+                        version = version + 1,
+                        custom_fields = custom_fields || jsonb_build_object(
+                            'snooze_until', %s::text,
+                            'snoozed_at', %s::text,
+                            'snooze_reason', %s::text
+                        )
+                    WHERE identifier = %s AND deleted_at IS NULL
+                    RETURNING *;
+                """, (until_dt, now, iso_until, now.isoformat(), req.reason, identifier))
+                updated = cur.fetchone()
+                if not updated:
+                    raise HTTPException(status_code=404, detail="Alert not found")
+                logging.info(f"💤 [SNOOZE] Alert {identifier} snoozed until {iso_until} (v{updated['version']})")
+                return updated
+
+    @app.post("/api/v1/alerts/{identifier}/unsnooze")
+    def unsnooze_alert(identifier: str):
+        """Manually wake up a snoozed alert before expiration."""
+        now = datetime.now(timezone.utc)
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE alerts SET
+                        status = 'OPEN',
+                        snooze_until = NULL,
+                        last_state_change = %s,
+                        version = version + 1,
+                        custom_fields = custom_fields - 'snooze_until' - 'snoozed_at' - 'snooze_reason'
+                    WHERE identifier = %s AND deleted_at IS NULL
+                    RETURNING *;
+                """, (now, identifier))
+                updated = cur.fetchone()
+                if not updated:
+                    raise HTTPException(status_code=404, detail="Alert not found")
+                logging.info(f"⏰ [MANUAL UNSNOOZE] Alert {identifier} awakened to OPEN (v{updated['version']})")
+                return updated
 
     @app.post("/api/v1/admin/rehydrate")
     def rehydrate_alerts(include_resolved: bool = False):
@@ -425,10 +500,56 @@ data:
             return FileResponse(js_file, media_type="application/javascript")
         return Response(status_code=404)
 
+    # -------------------------------------------------------------
+    # Temporal Engine (Issue 16: Snooze / SLA / Escalation Watcher)
+    # -------------------------------------------------------------
+
+    def temporal_engine_worker():
+        """
+        Temporal Engine Worker Daemon (Page 33 of Architecture Spec):
+        Runs periodic scans every 5 seconds to awaken expired SNOOZED alerts.
+        When an alert expires:
+          - Sets status = 'OPEN' and increments version.
+          - Triggers the PostgreSQL outbox trigger trg_alerts_to_outbox.
+          - The outbox forwarder immediately replicates the awakened state to Instance 2!
+        """
+        logging.info("⏰ Starting Temporal Engine Worker (interval: 5s)...")
+        time.sleep(3.0)
+        while True:
+            try:
+                time.sleep(5.0)
+                now = datetime.now(timezone.utc)
+                with get_db() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("""
+                            UPDATE alerts SET
+                                status = 'OPEN',
+                                last_state_change = %s,
+                                version = version + 1,
+                                snooze_until = NULL,
+                                custom_fields = custom_fields - 'snooze_until' - 'snoozed_at' - 'snooze_reason'
+                            WHERE status = 'SNOOZED'
+                              AND (
+                                  snooze_until <= %s 
+                                  OR (custom_fields->>'snooze_until')::timestamptz <= %s
+                              )
+                            RETURNING identifier, version;
+                        """, (now, now, now))
+                        awakened = cur.fetchall()
+                        if awakened:
+                            for row in awakened:
+                                logging.info(f"⏰ [TEMPORAL ENGINE] Snooze expired for alert '{row['identifier']}'. Awakened to OPEN (version: {row['version']})")
+            except Exception as e:
+                logging.warning(f"Temporal engine worker exception: {e}")
+
+    @app.on_event("startup")
+    def startup_temporal_engine():
+        t = threading.Thread(target=temporal_engine_worker, daemon=True)
+        t.start()
+
     if __name__ == "__main__":
         import uvicorn
         uvicorn.run(app, host="0.0.0.0", port=8081)
-
   outbox_forwarder.py: |
     #!/usr/bin/env python3
     """
@@ -692,7 +813,6 @@ data:
 
     if __name__ == "__main__":
         run_daemon()
-
 ---
 apiVersion: apps/v1
 kind: Deployment

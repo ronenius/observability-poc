@@ -11,8 +11,9 @@ import json
 import time
 import threading
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List, Union
+import requests
 from fastapi import FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
@@ -23,6 +24,7 @@ from psycopg.rows import dict_row
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [INSTANCE2-GW] %(levelname)s: %(message)s")
 
 DB_URI = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@postgres-instance2:5432/postgres")
+INSTANCE1_API_URL = os.getenv("INSTANCE1_API_URL", "http://instance1-api:8081")
 
 app = FastAPI(title="Security Gateway & Instance 2 Ingestion API", version="1.0.0")
 
@@ -104,6 +106,17 @@ class ReplicatedEnvelope(BaseModel):
     custom_fields: Optional[Dict[str, Any]] = Field(default_factory=dict)
     deleted_at: Optional[str] = None
 
+class SnoozeRequest(BaseModel):
+    duration_minutes: Optional[int] = 5
+    snooze_until: Optional[str] = None
+    reason: Optional[str] = "Suppressed by operator in NOC Console"
+
+class AlertPatch(BaseModel):
+    status: Optional[str] = None
+    severity: Optional[str] = None
+    summary: Optional[str] = None
+    custom_fields: Optional[Dict[str, Any]] = None
+
 # -------------------------------------------------------------
 # Gateway Endpoints
 # -------------------------------------------------------------
@@ -128,6 +141,7 @@ def _replicate_one_item(cur, payload: Dict[str, Any]) -> Dict[str, Any]:
     last_occ = payload.get("last_occurrence") or now
     last_change = payload.get("last_state_change") or now
     deleted_at = payload.get("deleted_at")
+    snooze_until = payload.get("snooze_until") or (payload.get("custom_fields") or {}).get("snooze_until")
 
     # Atomic UPSERT with Optimistic Concurrency Check:
     # Only update if incoming version is >= existing version!
@@ -136,11 +150,11 @@ def _replicate_one_item(cur, payload: Dict[str, Any]) -> Dict[str, Any]:
         INSERT INTO alerts (
             identifier, node, alert_key, severity, status, summary,
             tally, version, first_occurrence, last_occurrence, last_state_change,
-            is_flapping, custom_fields, deleted_at, replicated_at
+            is_flapping, custom_fields, deleted_at, replicated_at, snooze_until
         ) VALUES (
             %s, %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s,
-            %s, %s, %s, NOW()
+            %s, %s, %s, NOW(), %s
         )
         ON CONFLICT (identifier) DO UPDATE SET
             node = EXCLUDED.node,
@@ -155,13 +169,14 @@ def _replicate_one_item(cur, payload: Dict[str, Any]) -> Dict[str, Any]:
             is_flapping = EXCLUDED.is_flapping,
             custom_fields = EXCLUDED.custom_fields,
             deleted_at = EXCLUDED.deleted_at,
-            replicated_at = NOW()
+            replicated_at = NOW(),
+            snooze_until = EXCLUDED.snooze_until
         WHERE EXCLUDED.version >= alerts.version
         RETURNING (xmax = 0) AS was_inserted, version;
     """, (
         ident, payload["node"], payload.get("alert_key", "default"), sev, stat, payload.get("summary", ""),
         payload["tally"], ver, first_occ, last_occ, last_change,
-        payload.get("is_flapping", False), custom, deleted_at
+        payload.get("is_flapping", False), custom, deleted_at, snooze_until
     ))
     res = cur.fetchone()
 
@@ -221,7 +236,9 @@ def list_secondary_alerts(
     params = []
     if status:
         if status.upper() == "ACTIVE":
-            query += " AND status != 'RESOLVED'"
+            query += " AND status IN ('OPEN', 'ACKNOWLEDGED')"
+        elif status.upper() == "SNOOZED":
+            query += " AND status = 'SNOOZED'"
         else:
             query += " AND status = %s"
             params.append(status.upper())
@@ -266,13 +283,14 @@ def get_metrics_summary(minutes: Optional[int] = None):
             cur.execute(f"""
                 SELECT 
                     count(*) as total_alerts,
-                    count(*) FILTER (WHERE status != 'RESOLVED') as active_alerts,
-                    count(*) FILTER (WHERE severity = 'CRITICAL' AND status != 'RESOLVED') as critical_alerts,
-                    count(*) FILTER (WHERE severity = 'MAJOR' AND status != 'RESOLVED') as major_alerts,
-                    count(*) FILTER (WHERE severity = 'WARNING' AND status != 'RESOLVED') as warning_alerts,
+                    count(*) FILTER (WHERE status IN ('OPEN', 'ACKNOWLEDGED')) as active_alerts,
+                    count(*) FILTER (WHERE severity = 'CRITICAL' AND status IN ('OPEN', 'ACKNOWLEDGED')) as critical_alerts,
+                    count(*) FILTER (WHERE severity = 'MAJOR' AND status IN ('OPEN', 'ACKNOWLEDGED')) as major_alerts,
+                    count(*) FILTER (WHERE severity = 'WARNING' AND status IN ('OPEN', 'ACKNOWLEDGED')) as warning_alerts,
                     count(*) FILTER (WHERE is_flapping = TRUE) as flapping_alerts,
                     coalesce(sum(tally), 0) as total_events_tally,
                     count(*) FILTER (WHERE status = 'ACKNOWLEDGED') as acked_alerts,
+                    count(*) FILTER (WHERE status = 'SNOOZED') as snoozed_alerts,
                     count(*) FILTER (WHERE status = 'RESOLVED') as resolved_alerts
                 FROM alerts 
                 WHERE deleted_at IS NULL {time_filter};
@@ -289,6 +307,153 @@ def get_secondary_alert(identifier: str):
             if not alert:
                 raise HTTPException(status_code=404, detail="Alert not found in secondary database")
             return alert
+
+@app.post("/api/v1/alerts/{identifier}/snooze")
+def snooze_alert_secondary(identifier: str, req: SnoozeRequest):
+    """
+    Snooze Alert on Instance 2:
+    1. Proxies action to Instance 1 if reachable (triggering CDC Outbox replication).
+    2. Updates local DB2 directly to ensure zero-latency UI update and standalone failover resilience.
+    """
+    now = datetime.now(timezone.utc)
+    if req.snooze_until:
+        until_dt = datetime.fromisoformat(req.snooze_until.replace("Z", "+00:00"))
+    else:
+        mins = req.duration_minutes or 5
+        until_dt = now + timedelta(minutes=mins)
+
+    iso_until = until_dt.isoformat()
+
+    # 1. Forward to Primary Instance 1
+    fwd_success = False
+    try:
+        r = requests.post(
+            f"{INSTANCE1_API_URL}/api/v1/alerts/{identifier}/snooze",
+            json={"duration_minutes": req.duration_minutes, "snooze_until": req.snooze_until, "reason": req.reason},
+            timeout=2.0
+        )
+        if r.status_code == 200:
+            fwd_success = True
+    except Exception as e:
+        logging.warning(f"Could not forward snooze to Primary Instance 1: {e}")
+
+    # 2. Update local DB2 directly
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE alerts SET
+                    status = 'SNOOZED',
+                    snooze_until = %s,
+                    last_state_change = %s,
+                    version = version + 1,
+                    custom_fields = custom_fields || jsonb_build_object(
+                        'snooze_until', %s::text,
+                        'snoozed_at', %s::text,
+                        'snooze_reason', %s::text
+                    )
+                WHERE identifier = %s AND deleted_at IS NULL
+                RETURNING *;
+            """, (until_dt, now, iso_until, now.isoformat(), req.reason, identifier))
+            updated = cur.fetchone()
+            if not updated:
+                raise HTTPException(status_code=404, detail="Alert not found in secondary database")
+            logging.info(f"💤 [INSTANCE 2 SNOOZE] Alert {identifier} snoozed until {iso_until} (v{updated['version']}, forwarded_to_primary: {fwd_success})")
+            return updated
+
+@app.post("/api/v1/alerts/{identifier}/unsnooze")
+def unsnooze_alert_secondary(identifier: str):
+    """Manually wake up a snoozed alert before expiration on Instance 2."""
+    now = datetime.now(timezone.utc)
+    try:
+        requests.post(f"{INSTANCE1_API_URL}/api/v1/alerts/{identifier}/unsnooze", timeout=2.0)
+    except Exception as e:
+        logging.warning(f"Could not forward unsnooze to Primary Instance 1: {e}")
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE alerts SET
+                    status = 'OPEN',
+                    snooze_until = NULL,
+                    last_state_change = %s,
+                    version = version + 1,
+                    custom_fields = custom_fields - 'snooze_until' - 'snoozed_at' - 'snooze_reason'
+                WHERE identifier = %s AND deleted_at IS NULL
+                RETURNING *;
+            """, (now, identifier))
+            updated = cur.fetchone()
+            if not updated:
+                raise HTTPException(status_code=404, detail="Alert not found in secondary database")
+            logging.info(f"⏰ [INSTANCE 2 UNSNOOZE] Alert {identifier} awakened to OPEN (v{updated['version']})")
+            return updated
+
+@app.patch("/api/v1/alerts/{identifier}")
+def patch_alert_secondary(identifier: str, patch: AlertPatch):
+    """Operators ACK, Resolve, Reopen alert on Instance 2."""
+    now = datetime.now(timezone.utc)
+    try:
+        requests.patch(
+            f"{INSTANCE1_API_URL}/api/v1/alerts/{identifier}",
+            json=patch.dict(exclude_none=True),
+            timeout=2.0
+        )
+    except Exception as e:
+        logging.warning(f"Could not forward patch to Primary Instance 1: {e}")
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM alerts WHERE identifier = %s AND deleted_at IS NULL;", (identifier,))
+            existing = cur.fetchone()
+            if not existing:
+                raise HTTPException(status_code=404, detail="Alert not found in secondary database")
+
+            new_status = patch.status.upper() if patch.status else existing["status"]
+            new_severity = patch.severity.upper() if patch.severity else existing["severity"]
+            new_summary = patch.summary if patch.summary is not None else existing["summary"]
+
+            merged_custom = existing["custom_fields"] or {}
+            if patch.custom_fields:
+                merged_custom.update(patch.custom_fields)
+
+            cur.execute("""
+                UPDATE alerts SET
+                    status = %s,
+                    severity = %s,
+                    summary = %s,
+                    version = version + 1,
+                    last_state_change = %s,
+                    custom_fields = %s
+                WHERE identifier = %s
+                RETURNING *;
+            """, (new_status, new_severity, new_summary, now, json.dumps(merged_custom), identifier))
+            updated = cur.fetchone()
+            logging.info(f"✍️ [INSTANCE 2 PATCH] {identifier} | Status: {new_status} | Version: {updated['version']}")
+            return updated
+
+@app.delete("/api/v1/alerts/{identifier}")
+def delete_alert_secondary(identifier: str):
+    """Soft-delete on Instance 2."""
+    now = datetime.now(timezone.utc)
+    try:
+        requests.delete(f"{INSTANCE1_API_URL}/api/v1/alerts/{identifier}", timeout=2.0)
+    except Exception as e:
+        logging.warning(f"Could not forward delete to Primary Instance 1: {e}")
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE alerts SET
+                    status = 'PURGED',
+                    deleted_at = %s,
+                    version = version + 1
+                WHERE identifier = %s AND deleted_at IS NULL
+                RETURNING *;
+            """, (now, identifier))
+            deleted = cur.fetchone()
+            if not deleted:
+                raise HTTPException(status_code=404, detail="Alert not found in secondary database")
+            logging.info(f"🗑️ [INSTANCE 2 DELETE] {identifier} marked as PURGED (version: {deleted['version']})")
+            return {"status": "deleted", "identifier": identifier}
 
 @app.get("/api/v1/audit-log")
 def get_audit_log(limit: int = 50):
@@ -427,13 +592,50 @@ def watchdog_worker():
                                     last_state_change = NOW()
                                 WHERE identifier = %s;
                             """, (now, PIPELINE_FAILURE_IDENTIFIER))
+
         except Exception as e:
             logging.warning(f"Watchdog worker exception: {e}")
 
+def temporal_engine_worker():
+    """
+    Instance 2 Temporal Engine Background Daemon:
+    Runs every 5 seconds to awaken expired snoozed alerts on Instance 2.
+    Ensures that even if Instance 1 is down/partitioned, Instance 2 automatically
+    wakes snoozed alerts when their expiration time arrives.
+    """
+    logging.info("⏰ [INSTANCE 2] Starting Temporal Engine Worker (interval: 5s)...")
+    while True:
+        try:
+            time.sleep(5.0)
+            now = datetime.now(timezone.utc)
+            with get_db() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE alerts SET
+                            status = 'OPEN',
+                            last_state_change = %s,
+                            version = version + 1,
+                            snooze_until = NULL,
+                            custom_fields = custom_fields - 'snooze_until' - 'snoozed_at' - 'snooze_reason'
+                        WHERE status = 'SNOOZED'
+                          AND (
+                              snooze_until <= %s 
+                              OR (custom_fields->>'snooze_until')::timestamptz <= %s
+                          )
+                        RETURNING identifier, version;
+                    """, (now, now, now))
+                    sec_awakened = cur.fetchall()
+                    for r in sec_awakened:
+                        logging.info(f"⏰ [INSTANCE 2 TEMPORAL ENGINE] Awakened expired snoozed alert {r['identifier']} to OPEN (v{r['version']})")
+        except Exception as e:
+            logging.warning(f"[INSTANCE 2 TEMPORAL ENGINE] Sweep error: {e}")
+
 @app.on_event("startup")
 def startup_event():
-    t = threading.Thread(target=watchdog_worker, daemon=True)
-    t.start()
+    t_wd = threading.Thread(target=watchdog_worker, daemon=True, name="Instance2-Watchdog")
+    t_wd.start()
+    t_temporal = threading.Thread(target=temporal_engine_worker, daemon=True, name="Instance2-TemporalEngine")
+    t_temporal.start()
 
 if __name__ == "__main__":
     import uvicorn

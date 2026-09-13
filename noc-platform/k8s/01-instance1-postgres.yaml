@@ -25,7 +25,8 @@ data:
         flap_count INT NOT NULL DEFAULT 0,
         last_flap_time TIMESTAMPTZ NULL,
         custom_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
-        deleted_at TIMESTAMPTZ NULL
+        deleted_at TIMESTAMPTZ NULL,
+        snooze_until TIMESTAMPTZ NULL
     );
 
     -- HOT Update Tuning (Leaves 30% page space free to prevent index writes on deduplication updates)
@@ -43,6 +44,10 @@ data:
     CREATE INDEX IF NOT EXISTS idx_alerts_active 
     ON alerts (identifier, severity) 
     WHERE status != 'RESOLVED' AND deleted_at IS NULL;
+
+    CREATE INDEX IF NOT EXISTS idx_alerts_snoozed 
+    ON alerts (snooze_until) 
+    WHERE status = 'SNOOZED';
 
     CREATE INDEX IF NOT EXISTS idx_alerts_node ON alerts (node);
 

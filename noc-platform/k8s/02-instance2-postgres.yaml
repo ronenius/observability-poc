@@ -24,7 +24,8 @@ data:
         is_flapping BOOLEAN NOT NULL DEFAULT FALSE,
         custom_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
         deleted_at TIMESTAMPTZ NULL,
-        replicated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        replicated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        snooze_until TIMESTAMPTZ NULL
     );
 
     -- HOT Update Tuning (Leaves 30% page space free for in-place deduplication updates)
@@ -41,6 +42,10 @@ data:
     CREATE INDEX IF NOT EXISTS idx_sec_alerts_active 
     ON alerts (identifier, severity) 
     WHERE status != 'RESOLVED' AND deleted_at IS NULL;
+
+    CREATE INDEX IF NOT EXISTS idx_sec_alerts_snoozed 
+    ON alerts (snooze_until) 
+    WHERE status = 'SNOOZED';
 
     -- Replication Audit Log
     CREATE TABLE IF NOT EXISTS alerts_replication_log (

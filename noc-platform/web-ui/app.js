@@ -19,6 +19,8 @@
     searchQuery: '',
     limit: 250,
     selectedAlert: null,
+    snoozeTargetAlert: null,
+    snoozeDurationMinutes: 5,
     isFetching: false,
     timerRef: null,
     countdownMsRemaining: 5000,
@@ -58,6 +60,16 @@
     kpiFlapping: document.getElementById('kpi-flapping-val'),
     kpiTally: document.getElementById('kpi-tally-val'),
 
+    // Snooze Modal
+    snoozeModal: document.getElementById('snooze-modal'),
+    snoozeTargetIdent: document.getElementById('snooze-target-ident'),
+    snoozePresetsGrid: document.getElementById('snooze-presets-grid'),
+    snoozeCustomMinutes: document.getElementById('snooze-custom-minutes'),
+    snoozeReasonInput: document.getElementById('snooze-reason-input'),
+    confirmSnoozeBtn: document.getElementById('confirm-snooze-btn'),
+    cancelSnoozeBtn: document.getElementById('cancel-snooze-btn'),
+    closeSnoozeModalBtn: document.getElementById('close-snooze-modal-btn'),
+
     // Drawer
     drawer: document.getElementById('alert-drawer'),
     drawerCloseBtn: document.getElementById('drawer-close-btn'),
@@ -66,6 +78,8 @@
     drawerNode: document.getElementById('drawer-node'),
     drawerAlertKey: document.getElementById('drawer-alert-key'),
     drawerStatus: document.getElementById('drawer-status'),
+    drawerSnoozeRow: document.getElementById('drawer-snooze-row'),
+    drawerSnoozeUntil: document.getElementById('drawer-snooze-until'),
     drawerTally: document.getElementById('drawer-tally'),
     drawerFlapping: document.getElementById('drawer-flapping'),
     drawerFlapCount: document.getElementById('drawer-flap-count'),
@@ -75,6 +89,8 @@
     drawerSummary: document.getElementById('drawer-summary'),
     drawerCustomFields: document.getElementById('drawer-custom-fields'),
     actionAckBtn: document.getElementById('action-ack-btn'),
+    actionSnoozeBtn: document.getElementById('action-snooze-btn'),
+    actionUnsnoozeBtn: document.getElementById('action-unsnooze-btn'),
     actionResolveBtn: document.getElementById('action-resolve-btn'),
     actionReopenBtn: document.getElementById('action-reopen-btn'),
     actionDeleteBtn: document.getElementById('action-delete-btn'),
@@ -111,6 +127,24 @@
     }
   }
 
+  function formatTimeUntil(isoString) {
+    if (!isoString) return '-';
+    const target = new Date(isoString);
+    const now = new Date();
+    const diffSec = Math.floor((target - now) / 1000);
+
+    if (diffSec <= 0) return 'awakening...';
+    if (diffSec < 60) return `${diffSec}s`;
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) {
+      const sec = diffSec % 60;
+      return sec > 0 ? `${diffMin}m ${sec}s` : `${diffMin}m`;
+    }
+    const diffHours = Math.floor(diffMin / 60);
+    const remMin = diffMin % 60;
+    return `${diffHours}h ${remMin}m`;
+  }
+
   function formatNumber(num) {
     if (num == null) return '0';
     return Number(num).toLocaleString();
@@ -143,6 +177,12 @@
       el.kpiActive.textContent = formatNumber(data.active_alerts);
       el.kpiFlapping.textContent = formatNumber(data.flapping_alerts);
       el.kpiTally.textContent = formatNumber(data.total_events_tally);
+
+      const snoozedCount = data.snoozed_alerts || 0;
+      const activeSub = document.querySelector('#kpi-card-active .kpi-subtext');
+      if (activeSub) {
+        activeSub.textContent = snoozedCount > 0 ? `Open & Ack • ${snoozedCount} Snoozed 💤` : 'Open & In-Progress';
+      }
 
       el.syncStatus.textContent = 'ONLINE';
       el.syncStatus.style.color = 'var(--sev-clear)';
@@ -207,6 +247,7 @@
       case 'OPEN': return 'status-open';
       case 'ACKNOWLEDGED': return 'status-acknowledged';
       case 'RESOLVED': return 'status-resolved';
+      case 'SNOOZED': return 'status-snoozed';
       default: return '';
     }
   }
@@ -240,8 +281,12 @@
       const sevClass = getSeverityClass(alert.severity);
       const statusClass = getStatusClass(alert.status);
       const isFlapping = alert.is_flapping;
+      const isSnoozed = alert.status === 'SNOOZED';
       const tallyVal = alert.tally || 1;
       const isHighTally = tallyVal > 5;
+      const snoozeTag = isSnoozed && alert.snooze_until
+        ? `<div class="snooze-table-tag" title="Snoozed until ${escapeHtml(alert.snooze_until)}">💤 ${escapeHtml(formatTimeUntil(alert.snooze_until))}</div>`
+        : '';
 
       tr.innerHTML = `
         <td>
@@ -252,8 +297,9 @@
         </td>
         <td>
           <span class="badge-status ${statusClass}">
-            ${escapeHtml(alert.status)}
+            ${isSnoozed ? '💤 ' : ''}${escapeHtml(alert.status)}
           </span>
+          ${snoozeTag}
         </td>
         <td>
           <div class="ident-cell">
@@ -282,11 +328,27 @@
           </div>
         </td>
         <td style="text-align: right;">
-          <button class="btn btn-secondary btn-sm inspect-btn" data-id="${escapeHtml(alert.identifier)}">Inspect</button>
+          <div class="action-btn-group">
+            ${isSnoozed
+              ? `<button class="btn btn-outline-purple btn-sm unsnooze-row-btn" data-id="${escapeHtml(alert.identifier)}" title="Awaken alert back to OPEN">Awaken ⏰</button>`
+              : `<button class="btn-icon-snooze snooze-row-btn" data-id="${escapeHtml(alert.identifier)}" title="Snooze this alert">💤</button>`
+            }
+            <button class="btn btn-secondary btn-sm inspect-btn" data-id="${escapeHtml(alert.identifier)}">Inspect</button>
+          </div>
         </td>
       `;
 
       tr.addEventListener('click', (e) => {
+        if (e.target.closest('.snooze-row-btn')) {
+          e.stopPropagation();
+          openSnoozeModal(alert);
+          return;
+        }
+        if (e.target.closest('.unsnooze-row-btn')) {
+          e.stopPropagation();
+          unsnoozeAlert(alert.identifier);
+          return;
+        }
         openAlertDrawer(alert);
       });
 
@@ -313,7 +375,7 @@
     el.drawerIdent.textContent = alert.identifier;
     el.drawerNode.textContent = alert.node;
     el.drawerAlertKey.textContent = alert.alert_key;
-    el.drawerStatus.textContent = alert.status;
+    el.drawerStatus.textContent = alert.status === 'SNOOZED' ? 'SNOOZED 💤' : alert.status;
     el.drawerTally.textContent = `${alert.tally || 1} deduplicated events`;
     el.drawerFlapping.textContent = alert.is_flapping ? 'YES (Active)' : 'No';
     el.drawerFlapCount.textContent = alert.flap_count || 0;
@@ -321,6 +383,21 @@
     el.drawerLastSeen.textContent = formatFullDate(alert.last_occurrence);
     el.drawerVersion.textContent = `v${alert.version}`;
     el.drawerSummary.textContent = alert.summary || 'No summary text provided.';
+
+    // Snooze state and action buttons
+    if (alert.status === 'SNOOZED') {
+      el.actionSnoozeBtn.classList.add('hidden');
+      el.actionUnsnoozeBtn.classList.remove('hidden');
+      el.drawerSnoozeRow.style.display = 'flex';
+      const untilFormatted = alert.snooze_until
+        ? `${formatFullDate(alert.snooze_until)} (${formatTimeUntil(alert.snooze_until)})`
+        : 'Indefinite';
+      el.drawerSnoozeUntil.textContent = untilFormatted;
+    } else {
+      el.actionSnoozeBtn.classList.remove('hidden');
+      el.actionUnsnoozeBtn.classList.add('hidden');
+      el.drawerSnoozeRow.style.display = 'none';
+    }
 
     // Severity badge styling
     el.drawerSevBadge.className = `badge-severity ${getSeverityClass(alert.severity)}`;
@@ -378,6 +455,81 @@
       fetchSummaryMetrics();
     } catch (err) {
       showToast(`Purge failed: ${err.message}`, 'error');
+    }
+  }
+
+  // --- Snooze Modal Engine ---
+
+  function openSnoozeModal(alert) {
+    state.snoozeTargetAlert = alert;
+    el.snoozeTargetIdent.textContent = `${alert.identifier} (${alert.node})`;
+    state.snoozeDurationMinutes = 5;
+    el.snoozeCustomMinutes.value = '';
+    el.snoozeReasonInput.value = '';
+
+    // Reset presets to 5m active
+    document.querySelectorAll('#snooze-presets-grid .snooze-preset-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.minutes === '5');
+    });
+
+    el.snoozeModal.classList.remove('hidden');
+  }
+
+  function closeSnoozeModal() {
+    el.snoozeModal.classList.add('hidden');
+    state.snoozeTargetAlert = null;
+  }
+
+  async function confirmSnooze() {
+    if (!state.snoozeTargetAlert) return;
+    const ident = state.snoozeTargetAlert.identifier;
+    let minutes = state.snoozeDurationMinutes;
+
+    const customMin = parseInt(el.snoozeCustomMinutes.value, 10);
+    if (!isNaN(customMin) && customMin > 0) {
+      minutes = customMin;
+    }
+
+    const reason = el.snoozeReasonInput.value.trim() || 'Suppressed by operator in NOC Console';
+
+    try {
+      const res = await fetch(`${API_BASE}/alerts/${encodeURIComponent(ident)}/snooze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          duration_minutes: minutes,
+          reason: reason
+        })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const updated = await res.json();
+      closeSnoozeModal();
+      showToast(`Alert ${ident} snoozed for ${minutes}m (auto-wakes at ${formatTimeUntil(updated.snooze_until)})`, 'success');
+
+      if (state.selectedAlert && state.selectedAlert.identifier === ident) {
+        openAlertDrawer(updated);
+      }
+      triggerFullRefresh();
+    } catch (err) {
+      showToast(`Failed to snooze alert: ${err.message}`, 'error');
+    }
+  }
+
+  async function unsnoozeAlert(ident) {
+    try {
+      const res = await fetch(`${API_BASE}/alerts/${encodeURIComponent(ident)}/unsnooze`, {
+        method: 'POST'
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const updated = await res.json();
+      showToast(`Alert ${ident} awakened back to OPEN`, 'success');
+
+      if (state.selectedAlert && state.selectedAlert.identifier === ident) {
+        openAlertDrawer(updated);
+      }
+      triggerFullRefresh();
+    } catch (err) {
+      showToast(`Failed to awaken alert: ${err.message}`, 'error');
     }
   }
 
@@ -444,6 +596,7 @@
       if (e.key === 'Escape') {
         closeAlertDrawer();
         el.customModal.classList.add('hidden');
+        closeSnoozeModal();
       }
     });
 
@@ -561,9 +714,39 @@
     // Drawer actions
     el.drawerCloseBtn.addEventListener('click', closeAlertDrawer);
     el.actionAckBtn.addEventListener('click', () => patchSelectedAlert('ACKNOWLEDGED'));
+    el.actionSnoozeBtn.addEventListener('click', () => {
+      if (state.selectedAlert) openSnoozeModal(state.selectedAlert);
+    });
+    el.actionUnsnoozeBtn.addEventListener('click', () => {
+      if (state.selectedAlert) unsnoozeAlert(state.selectedAlert.identifier);
+    });
     el.actionResolveBtn.addEventListener('click', () => patchSelectedAlert('RESOLVED'));
     el.actionReopenBtn.addEventListener('click', () => patchSelectedAlert('OPEN'));
     el.actionDeleteBtn.addEventListener('click', deleteSelectedAlert);
+
+    // Snooze Modal actions
+    el.closeSnoozeModalBtn.addEventListener('click', closeSnoozeModal);
+    el.cancelSnoozeBtn.addEventListener('click', closeSnoozeModal);
+    el.confirmSnoozeBtn.addEventListener('click', confirmSnooze);
+    el.snoozeModal.addEventListener('click', (e) => {
+      if (e.target === el.snoozeModal) closeSnoozeModal();
+    });
+
+    // Snooze duration preset buttons
+    el.snoozePresetsGrid.addEventListener('click', (e) => {
+      const btn = e.target.closest('.snooze-preset-btn');
+      if (!btn) return;
+      document.querySelectorAll('#snooze-presets-grid .snooze-preset-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.snoozeDurationMinutes = parseInt(btn.dataset.minutes, 10);
+      el.snoozeCustomMinutes.value = '';
+    });
+
+    el.snoozeCustomMinutes.addEventListener('input', () => {
+      if (el.snoozeCustomMinutes.value) {
+        document.querySelectorAll('#snooze-presets-grid .snooze-preset-btn').forEach(b => b.classList.remove('active'));
+      }
+    });
 
     // Close drawer when clicking outside panel
     el.drawer.addEventListener('click', (e) => {
