@@ -73,11 +73,14 @@ async def main():
             print(f"🌐 Navigating to {UI_URL}...")
             await send_cdp(ws, "Page.navigate", {"url": UI_URL})
 
-            # Wait 3 seconds for initial status & models fetch
-            await asyncio.sleep(3)
+            # Wait for initial status & models fetch
+            status_text = ""
+            for _ in range(20):
+                status_text = await eval_js(ws, "document.getElementById('status-text') ? document.getElementById('status-text').textContent.trim() : ''")
+                if "Connected" in status_text:
+                    break
+                await asyncio.sleep(0.5)
 
-            # Test 1: System status
-            status_text = await eval_js(ws, "document.getElementById('status-text') ? document.getElementById('status-text').textContent.trim() : ''")
             print(f"✅ Status Text: '{status_text}'")
             assert "Connected" in status_text, f"Expected Connected, got {status_text}"
 
