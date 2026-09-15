@@ -34,27 +34,8 @@
         <div class="model-selector-wrapper">
           <label for="model-select" class="model-selector-pill" id="model-selector-pill" title="Choose LLM Model for investigations">
             <span class="model-sparkle-icon">✨</span>
-            <select id="model-select" class="model-select" aria-label="Select Gemini Model">
-              <optgroup label="Google Gemini">
-                <option value="gemini/gemini-3-flash">Gemini 3 Flash</option>
-                <option value="gemini/gemini-3.5-flash-lite">Gemini 3.5 Flash Lite (Fast &amp; Lean)</option>
-                <option value="gemini/gemini-3.6-flash">Gemini 3.6 Flash (Recommended)</option>
-                <option value="gemini/gemini-3.7-flash">Gemini 3.7 Flash</option>
-                <option value="gemini/gemini-3.8-flash">Gemini 3.8 Flash (High Reasoning)</option>
-              </optgroup>
-              <optgroup label="Airgapped &amp; Local OSS Models">
-                <option value="gemma-4">Gemma 4 (Local/Airgapped)</option>
-                <option value="qwen-3.8">Qwen 3.8 (Local/Airgapped)</option>
-                <option value="gpt-oss">GPT-OSS (Local/Airgapped)</option>
-              </optgroup>
-              <optgroup label="Legacy / Deprecated Models">
-                <option value="gemini/gemini-2.5-flash">Gemini 2.5 Flash (Deprecated by Google)</option>
-                <option value="gemini/gemini-2.0-flash">Gemini 2.0 Flash (Deprecated by Google)</option>
-              </optgroup>
-              <optgroup label="Configuration">
-                <option value="default">Cluster Default (Auto)</option>
-                <option value="custom">+ Custom Model...</option>
-              </optgroup>
+            <select id="model-select" class="model-select" aria-label="Select Model">
+              <option value="" disabled selected>Loading models from Holmes backend...</option>
             </select>
             <svg class="dropdown-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <path d="m6 9 6 6 6-6"/>
@@ -247,7 +228,7 @@
             </div>
             <div class="input-helper">
               <span>Press <kbd>Enter</kbd> to send, <kbd>Shift</kbd> + <kbd>Enter</kbd> for newline</span>
-              <span class="model-active-hint" id="active-model-indicator">Model: <strong>Gemini 3.5 Flash Lite</strong></span>
+              <span class="model-active-hint" id="active-model-indicator">Model: <strong>Connecting...</strong></span>
             </div>
           </form>
         </div>
@@ -266,8 +247,20 @@
         <button id="close-modal-btn" class="icon-btn" title="Close">&times;</button>
       </div>
       <div class="modal-body">
-        <p>Specify any provider and model identifier (e.g. <code>gemini/gemini-2.5-pro</code>, <code>gemini/gemini-3.1-pro-preview</code>, or <code>openai/gpt-4o</code>):</p>
-        <input type="text" id="custom-model-input" class="modal-input" placeholder="e.g. gemini/gemini-2.5-pro" spellcheck="false" autocomplete="off" />
+        <p>Specify any model identifier configured in your Holmes backend (or click one from the backend list below):</p>
+        <input type="text" id="custom-model-input" class="modal-input" placeholder="e.g. gemma-4 or qwen-3.8" spellcheck="false" autocomplete="off" />
+        
+        <div class="backend-models-section" id="backend-models-section">
+          <div class="backend-models-header">
+            <span class="backend-models-title"><span>⚡</span> Available in Holmes Backend</span>
+            <span class="backend-models-count" id="backend-models-count">0 models</span>
+          </div>
+          <p class="backend-models-desc">Click any model registered in the Holmes backend (from <code>model_list.yaml</code>) to use it:</p>
+          <div class="backend-models-chips" id="backend-models-chips">
+            <div class="backend-models-loading">Loading backend model list...</div>
+          </div>
+        </div>
+
         <div class="modal-hint">The chosen model will be supplied in the <code>model</code> parameter for every request.</div>
       </div>
       <div class="modal-footer">

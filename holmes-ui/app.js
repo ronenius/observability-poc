@@ -20,10 +20,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Model Selector & Modal Elements
   const modelSelect = document.getElementById('model-select');
+  const backendModelsOptgroup = document.getElementById('backend-models-optgroup');
   const activeModelIndicator = document.getElementById('active-model-indicator');
   const toast = document.getElementById('toast');
   const customModelModal = document.getElementById('custom-model-modal');
   const customModelInput = document.getElementById('custom-model-input');
+  const backendModelsChips = document.getElementById('backend-models-chips');
+  const backendModelsCount = document.getElementById('backend-models-count');
   const closeModalBtn = document.getElementById('close-modal-btn');
   const cancelModalBtn = document.getElementById('cancel-modal-btn');
   const saveModalBtn = document.getElementById('save-modal-btn');
@@ -37,37 +40,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // --------------------------------------------------
 
   function getModelDisplayName(modelId) {
-    switch (modelId) {
-      case 'gemini/gemini-3-flash':
-        return 'Gemini 3 Flash';
-      case 'gemini/gemini-3.5-flash-lite':
-        return 'Gemini 3.5 Flash Lite';
-      case 'gemini/gemini-3.6-flash':
-        return 'Gemini 3.6 Flash';
-      case 'gemini/gemini-3.7-flash':
-        return 'Gemini 3.7 Flash';
-      case 'gemini/gemini-3.8-flash':
-        return 'Gemini 3.8 Flash';
-      case 'gemini/gemini-2.5-flash':
-        return 'Gemini 2.5 Flash';
-      case 'gemini/gemini-2.0-flash':
-        return 'Gemini 2.0 Flash';
-      case 'gemma-4':
-      case 'gemma/gemma-4':
-      case 'openai/gemma-4':
-        return 'Gemma 4 (OSS)';
-      case 'qwen-3.8':
-      case 'qwen/qwen-3.8':
-      case 'openai/qwen-3.8':
-        return 'Qwen 3.8 (OSS)';
-      case 'gpt-oss':
-      case 'openai/gpt-oss':
-        return 'GPT-OSS (OSS)';
-      case 'default':
-        return 'Cluster Default';
-      default:
-        return modelId.replace(/^gemini\//, '').replace(/^openai\//, '');
-    }
+    if (!modelId || modelId === 'default') return 'Cluster Default';
+    const base = modelId.includes('/') ? modelId.split('/').slice(1).join('/') : modelId;
+    const formatted = base
+      .replace(/[-_]/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
+    return formatted || modelId;
   }
 
   let toastTimer = null;
@@ -87,22 +65,134 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Load selected model from localStorage or default
-  let selectedModel = localStorage.getItem('holmes_selected_model') || 'gemini/gemini-3.5-flash-lite';
+  // Load selected model from localStorage (defaults to first backend model when fetched)
+  let selectedModel = localStorage.getItem('holmes_selected_model') || null;
 
-  // If a custom model was saved, ensure an option exists in the dropdown
-  if (selectedModel && modelSelect) {
-    const existingOpt = Array.from(modelSelect.options).find(o => o.value === selectedModel);
-    if (!existingOpt) {
-      const customOpt = document.createElement('option');
-      customOpt.value = selectedModel;
-      customOpt.textContent = `${getModelDisplayName(selectedModel)} (Custom)`;
-      const optGroup = modelSelect.querySelector('optgroup[label="Configuration"]') || modelSelect;
-      optGroup.appendChild(customOpt);
+  function addCustomOption(val) {
+    if (!modelSelect || !val) return null;
+    let opt = Array.from(modelSelect.options).find(o => o.value === val);
+    if (!opt) {
+      opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = `${getModelDisplayName(val)} (${val})`;
+      let customGroup = modelSelect.querySelector('optgroup[label="Custom Models"]');
+      if (!customGroup) {
+        customGroup = document.createElement('optgroup');
+        customGroup.label = 'Custom Models';
+        const configGroup = modelSelect.querySelector('optgroup[label="Configuration"]');
+        if (configGroup) {
+          modelSelect.insertBefore(customGroup, configGroup);
+        } else {
+          modelSelect.appendChild(customGroup);
+        }
+      }
+      customGroup.appendChild(opt);
     }
-    modelSelect.value = selectedModel;
+    return opt;
   }
-  updateActiveModelDisplay(selectedModel);
+
+  function applyCustomModel(customVal) {
+    if (!customVal) return;
+    addCustomOption(customVal);
+    selectedModel = customVal;
+    if (modelSelect) modelSelect.value = selectedModel;
+    localStorage.setItem('holmes_selected_model', selectedModel);
+    updateActiveModelDisplay(selectedModel);
+    closeCustomModal();
+    showToast(`✨ Model set to ${getModelDisplayName(customVal)}`);
+  }
+
+  // Synchronize dynamic models strictly from Holmes backend (/api/info)
+  let cachedBackendModels = [];
+  function syncBackendModels(models) {
+    if (!modelSelect) return;
+    cachedBackendModels = Array.isArray(models) ? models : [];
+
+    // 1. Update count in modal
+    if (backendModelsCount) {
+      backendModelsCount.textContent = `${cachedBackendModels.length} model${cachedBackendModels.length === 1 ? '' : 's'}`;
+    }
+
+    // 2. Render chips in Custom Model Modal
+    if (backendModelsChips) {
+      backendModelsChips.innerHTML = '';
+      if (cachedBackendModels.length === 0) {
+        backendModelsChips.innerHTML = '<div class="backend-models-empty">No models reported by Holmes backend.</div>';
+      } else {
+        cachedBackendModels.forEach(modelId => {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'model-chip' + (selectedModel === modelId ? ' selected' : '');
+          chip.title = `Click to choose ${modelId} (${getModelDisplayName(modelId)})`;
+          chip.innerHTML = `<span class="model-chip-icon">🤖</span><span>${escapeHtml(modelId)}</span>`;
+          
+          chip.addEventListener('click', () => {
+            backendModelsChips.querySelectorAll('.model-chip').forEach(c => c.classList.remove('selected'));
+            chip.classList.add('selected');
+            if (customModelInput) {
+              customModelInput.value = modelId;
+              customModelInput.focus();
+            }
+          });
+
+          // Double click immediately applies
+          chip.addEventListener('dblclick', () => {
+            applyCustomModel(modelId);
+          });
+
+          backendModelsChips.appendChild(chip);
+        });
+      }
+    }
+
+    // 3. Build dropdown options exclusively from Holmes backend
+    modelSelect.innerHTML = '';
+
+    if (cachedBackendModels.length > 0) {
+      const backendGroup = document.createElement('optgroup');
+      backendGroup.label = 'Holmes Backend Models';
+      backendGroup.id = 'backend-models-optgroup';
+
+      cachedBackendModels.forEach(modelId => {
+        const opt = document.createElement('option');
+        opt.value = modelId;
+        opt.textContent = `${getModelDisplayName(modelId)} (${modelId})`;
+        backendGroup.appendChild(opt);
+      });
+      modelSelect.appendChild(backendGroup);
+    }
+
+    // Configuration / custom option group
+    const configGroup = document.createElement('optgroup');
+    configGroup.label = 'Configuration';
+    configGroup.id = 'config-optgroup';
+
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = 'default';
+    defaultOpt.textContent = 'Cluster Default (Backend Auto)';
+    configGroup.appendChild(defaultOpt);
+
+    const customOpt = document.createElement('option');
+    customOpt.value = 'custom';
+    customOpt.textContent = '+ Custom Model...';
+    configGroup.appendChild(customOpt);
+
+    modelSelect.appendChild(configGroup);
+
+    // 4. Resolve default or preserved selection
+    if (!selectedModel) {
+      // Default to the first model in backend list if available, else 'default'
+      selectedModel = cachedBackendModels.length > 0 ? cachedBackendModels[0] : 'default';
+    } else if (selectedModel !== 'default') {
+      const exists = Array.from(modelSelect.options).some(o => o.value === selectedModel);
+      if (!exists) {
+        addCustomOption(selectedModel);
+      }
+    }
+
+    modelSelect.value = selectedModel;
+    updateActiveModelDisplay(selectedModel);
+  }
 
   // Model Dropdown Change Handler
   if (modelSelect) {
@@ -112,8 +202,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // Revert select display until confirmed
         modelSelect.value = selectedModel;
         customModelModal.style.display = 'flex';
-        customModelInput.value = '';
+        customModelInput.value = selectedModel !== 'default' ? selectedModel : '';
         customModelInput.focus();
+
+        // Highlight matching chip if present
+        if (backendModelsChips) {
+          backendModelsChips.querySelectorAll('.model-chip').forEach(c => {
+            const label = c.querySelector('span:last-child')?.textContent || c.textContent.trim();
+            if (label === selectedModel) {
+              c.classList.add('selected');
+            } else {
+              c.classList.remove('selected');
+            }
+          });
+        }
       } else {
         selectedModel = val;
         localStorage.setItem('holmes_selected_model', selectedModel);
@@ -142,21 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
         customModelInput.focus();
         return;
       }
-      // Add option if missing
-      let opt = Array.from(modelSelect.options).find(o => o.value === customVal);
-      if (!opt) {
-        opt = document.createElement('option');
-        opt.value = customVal;
-        opt.textContent = `${customVal} (Custom)`;
-        const optGroup = modelSelect.querySelector('optgroup[label="Configuration"]') || modelSelect;
-        optGroup.insertBefore(opt, optGroup.lastElementChild);
-      }
-      selectedModel = customVal;
-      modelSelect.value = selectedModel;
-      localStorage.setItem('holmes_selected_model', selectedModel);
-      updateActiveModelDisplay(selectedModel);
-      closeCustomModal();
-      showToast(`✨ Custom model set: ${customVal}`);
+      applyCustomModel(customVal);
     });
   }
 
@@ -560,10 +648,11 @@ document.addEventListener('DOMContentLoaded', () => {
         systemStatus.style.borderColor = 'rgba(16, 185, 129, 0.25)';
         systemStatus.style.color = '#34d399';
 
-        if (info.models && info.models.length > 0) {
+        if (info.models && Array.isArray(info.models) && info.models.length > 0) {
+          syncBackendModels(info.models);
           const defaultModelOpt = modelSelect.querySelector('option[value="default"]');
           if (defaultModelOpt) {
-            defaultModelOpt.textContent = `Cluster Default (${info.models[0].replace('gemini/', '')})`;
+            defaultModelOpt.textContent = `Cluster Default (${info.models[0]})`;
           }
         }
         if (info.version) {
