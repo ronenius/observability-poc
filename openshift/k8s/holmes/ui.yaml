@@ -81,6 +81,8 @@ metadata:
   namespace: holmes
   labels:
     app: holmes-ui
+  annotations:
+    haproxy.router.openshift.io/timeout: 5m
 spec:
   to:
     kind: Service
